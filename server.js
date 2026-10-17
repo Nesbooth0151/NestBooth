@@ -14,6 +14,14 @@ const mime = {
   '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json'
 };
 
+function jakartaDate() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date());
+  const part = type => parts.find(item => item.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
 function send(res, status, body, headers = {}) {
   res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers});
   res.end(JSON.stringify(body));
@@ -64,7 +72,7 @@ async function createSale(payload) {
   const [settingsRows, productRows, queueRows] = await Promise.all([
     db('store_settings?select=*&id=eq.1'),
     db('products?select=id,name,price&is_active=eq.true'),
-    db('queue_items?select=queue_number,created_at&order=created_at.desc&limit=1000')
+    db('queue_items?select=queue_number,queue_date&queue_date=eq.' + jakartaDate() + '&order=created_at.desc&limit=1000')
   ]);
   const products = new Map(productRows.map(product => [product.name, product]));
   const safeItems = items.map(item => {
@@ -81,15 +89,13 @@ async function createSale(payload) {
   const taxAmount = Math.round(subtotal * taxPercent / 100);
   const total = subtotal + taxAmount;
   const prefix = String(settingsRows[0]?.queue_prefix || 'A').toUpperCase();
-  const parts = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'}).formatToParts(new Date());
-  const datePart = type => parts.find(part => part.type === type)?.value;
-  const jakartaToday = `${datePart('year')}-${datePart('month')}-${datePart('day')}`;
-  const todayCount = queueRows.filter(row => row.created_at?.startsWith(jakartaToday)).length;
+  const jakartaToday = jakartaDate();
+  const todayCount = queueRows.length;
   const queueNumber = `${prefix}${String(todayCount + 1).padStart(3, '0')}`;
   const receiptNumber = `NB${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`;
   const method = payload.method === 'QRIS' ? 'QRIS' : 'Tunai';
   const saleRows = await db('sales', {method: 'POST', body: JSON.stringify({receipt_number: receiptNumber, items: safeItems, subtotal, tax_amount: taxAmount, total, payment_method: method, payment_status: 'paid'})});
-  const queueRowsCreated = await db('queue_items', {method: 'POST', body: JSON.stringify({queue_number: queueNumber, item_count: safeItems.reduce((sum, item) => sum + item.qty, 0), sale_id: saleRows[0].id})});
+  const queueRowsCreated = await db('queue_items', {method: 'POST', body: JSON.stringify({queue_number: queueNumber, queue_date: jakartaToday, item_count: safeItems.reduce((sum, item) => sum + item.qty, 0), sale_id: saleRows[0].id})});
   return {sale: saleRows[0], queue: queueRowsCreated[0], taxPercent};
 }
 

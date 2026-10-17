@@ -1,6 +1,10 @@
 // Menghubungkan POS dengan API Render. Tidak pernah memuat kunci rahasia di browser.
 (() => {
   if (!/^https?:$/.test(location.protocol)) return;
+  // Pada alamat Render, transaksi wajib melewati database pusat. Jangan
+  // mengizinkan fallback diam-diam ke localStorage karena perangkat lain
+  // tidak akan dapat melihat transaksi tersebut.
+  const mustUseCloud = /\.onrender\.com$/i.test(location.hostname);
   const api = async (url, options) => {
     const response = await fetch(url, {headers: {'Content-Type': 'application/json'}, ...options});
     const data = await response.json().catch(() => ({}));
@@ -24,6 +28,7 @@
       const data = await api('/api/bootstrap');
       if (!data.products?.length) return;
       window.nesboothCloudState = data;
+      window.nesboothCloudError = '';
       window.dispatchEvent(new Event('nesbooth-cloud-updated'));
       window.nesboothCloudCreateSale = createCloudSale;
       products.splice(0, products.length, ...data.products.map(product => [product.name, product.category, Number(product.price), 100, '🥤']));
@@ -37,9 +42,13 @@
       current = Math.max(0, queue.findIndex(item => item.status === 'Diproses'));
       renderProducts(); renderCart(); refreshStockAdmin(); renderQueue();
     } catch (error) {
-      // Server lokal masih dapat digunakan tanpa kredensial cloud.
-      console.info('Mode lokal NesBooth aktif:', error.message);
+      const message = error.message || 'Server tidak dapat dihubungi';
+      console.info('Koneksi database NesBooth gagal:', message);
+      window.nesboothCloudError = message;
       window.nesboothCloudCreateSale = null;
+      if (mustUseCloud) {
+        window.dispatchEvent(new Event('nesbooth-cloud-unavailable'));
+      }
     }
   }
   window.nesboothCloudCreateSale = null;

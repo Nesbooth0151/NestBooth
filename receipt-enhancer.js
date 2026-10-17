@@ -87,7 +87,8 @@
     const queueNumber = claimDailyQueueNumber();
     const data = { items: cart.map(entry => ({name: products[entry.i][0] + (entry.variant ? ' — ' + entry.variant : ''), price: entry.unitPrice ?? products[entry.i][2], qty: entry.q})), subtotal, tax, taxPercent: subtotal ? Number(((tax / subtotal) * 100).toFixed(1)) : 0, total: window.orderTotal, method, queueNumber, receiptNumber: 'NB'+Date.now().toString().slice(-6), date: new Date().toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) };
     // Saat POS dibuka dari server online, simpan dahulu ke database.
-    // Fallback lokal tetap tersedia saat server/database belum terhubung.
+    // Di Render tidak boleh fallback ke localStorage: data itu tidak akan
+    // terlihat oleh kasir/perangkat lain.
     if (typeof window.nesboothCloudCreateSale === 'function') {
       confirmPay.disabled = true;
       window.nesboothCloudCreateSale(data).then(remote => {
@@ -105,6 +106,11 @@
         show('Pembayaran berhasil. Nomor antrean ' + data.queueNumber + ' dibuat.');
       }).catch(error => show(error.message || 'Pembayaran belum dapat disimpan.'))
         .finally(() => { confirmPay.disabled = false; });
+      return;
+    }
+    if (/\.onrender\.com$/i.test(location.hostname)) {
+      const reason = window.nesboothCloudError ? ` (${window.nesboothCloudError})` : '';
+      show('Transaksi belum disimpan karena database online belum terhubung' + reason + '. Periksa konfigurasi Supabase di Render, lalu coba lagi.');
       return;
     }
     const originalPush = queue.push;
