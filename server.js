@@ -118,6 +118,21 @@ function cleanName(value, label) {
   return text;
 }
 
+function reportDate(value, label) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) throw new Error(`${label} tidak valid`);
+  return value;
+}
+
+async function salesReport(from, to) {
+  const start = reportDate(from, 'Tanggal awal');
+  const end = reportDate(to, 'Tanggal akhir');
+  if (start > end) throw new Error('Rentang tanggal tidak valid');
+  const startTime = new Date(`${start}T00:00:00+07:00`).toISOString();
+  const nextDate = new Date(`${end}T00:00:00+07:00`); nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const endTime = nextDate.toISOString();
+  return db(`sales?select=*&created_at=gte.${encodeURIComponent(startTime)}&created_at=lt.${encodeURIComponent(endTime)}&order=created_at.desc&limit=5000`);
+}
+
 async function saveSettings(payload) {
   const store_name = cleanName(payload.store_name, 'Nama toko');
   const tax_percent = Number(payload.tax_percent);
@@ -154,6 +169,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/api/health') return send(res, 200, {ok: true, databaseConfigured: Boolean(supabaseUrl && supabaseKey)});
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') return send(res, 200, await bootstrap());
+    if (url.pathname === '/api/reports/sales' && req.method === 'GET') return send(res, 200, {sales: await salesReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
     if (url.pathname === '/api/settings' && req.method === 'PUT') return send(res, 200, await saveSettings(await readBody(req)));
     if (url.pathname === '/api/products' && req.method === 'POST') return send(res, 201, await saveProduct(await readBody(req)));
