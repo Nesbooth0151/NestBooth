@@ -69,10 +69,9 @@ async function bootstrap() {
 async function createSale(payload) {
   const items = Array.isArray(payload.items) ? payload.items : [];
   if (!items.length) throw new Error('Pesanan kosong');
-  const [settingsRows, productRows, queueRows] = await Promise.all([
+  const [settingsRows, productRows] = await Promise.all([
     db('store_settings?select=*&id=eq.1'),
-    db('products?select=id,name,price&is_active=eq.true'),
-    db('queue_items?select=queue_number,queue_date&queue_date=eq.' + jakartaDate() + '&order=created_at.desc&limit=1000')
+    db('products?select=id,name,price&is_active=eq.true')
   ]);
   const products = new Map(productRows.map(product => [product.name, product]));
   const safeItems = items.map(item => {
@@ -90,13 +89,15 @@ async function createSale(payload) {
   const total = subtotal + taxAmount;
   const prefix = String(settingsRows[0]?.queue_prefix || 'A').toUpperCase();
   const jakartaToday = jakartaDate();
-  const todayCount = queueRows.length;
-  const queueNumber = `${prefix}${String(todayCount + 1).padStart(3, '0')}`;
   const receiptNumber = `NB${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`;
   const method = payload.method === 'QRIS' ? 'QRIS' : 'Tunai';
-  const saleRows = await db('sales', {method: 'POST', body: JSON.stringify({receipt_number: receiptNumber, items: safeItems, subtotal, tax_amount: taxAmount, total, payment_method: method, payment_status: 'paid'})});
-  const queueRowsCreated = await db('queue_items', {method: 'POST', body: JSON.stringify({queue_number: queueNumber, queue_date: jakartaToday, item_count: safeItems.reduce((sum, item) => sum + item.qty, 0), sale_id: saleRows[0].id})});
-  return {sale: saleRows[0], queue: queueRowsCreated[0], taxPercent};
+  const created = await db('rpc/create_pos_sale', {method: 'POST', body: JSON.stringify({
+    p_items: safeItems, p_subtotal: subtotal, p_tax_amount: taxAmount, p_total: total,
+    p_payment_method: method, p_receipt_number: receiptNumber,
+    p_queue_prefix: prefix, p_queue_date: jakartaToday
+  })});
+  if (!created?.sale || !created?.queue) throw new Error('Transaksi dan antrean tidak berhasil dibuat');
+  return {sale: created.sale, queue: created.queue, taxPercent};
 }
 
 async function updateQueueStatus(payload) {
