@@ -99,6 +99,18 @@ async function createSale(payload) {
   return {sale: saleRows[0], queue: queueRowsCreated[0], taxPercent};
 }
 
+async function updateQueueStatus(payload) {
+  const id = String(payload.id || '');
+  const status = String(payload.status || '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Antrean tidak valid');
+  if (!['Menunggu', 'Diproses', 'Selesai'].includes(status)) throw new Error('Status antrean tidak valid');
+  const rows = await db(`queue_items?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH', body: JSON.stringify({status})
+  });
+  if (!rows?.[0]) throw new Error('Antrean tidak ditemukan');
+  return rows[0];
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
@@ -111,7 +123,7 @@ const server = http.createServer(async (req, res) => {
       const queue = items.map(item => ({id: item.id, n: item.queue_number, name: '', items: `${item.item_count} item`, status: item.status}));
       return send(res, 200, {queue, current: Math.max(0, queue.findIndex(item => item.status === 'Diproses'))});
     }
-    if (url.pathname === '/api/queue' && req.method === 'PUT') return send(res, 501, {error: 'Pembaruan antrean online sedang disiapkan'});
+    if (url.pathname === '/api/queue' && req.method === 'PUT') return send(res, 200, await updateQueueStatus(await readBody(req)));
   } catch (error) {
     return send(res, 500, {error: error.message || 'Terjadi kesalahan server'});
   }

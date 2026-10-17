@@ -16,6 +16,7 @@
     setTimeout(loadCloudData, 0);
     return {
       queueNumber: result.queue.queue_number,
+      queueId: result.queue.id,
       receiptNumber: result.sale.receipt_number,
       subtotal: Number(result.sale.subtotal),
       tax: Number(result.sale.tax_amount),
@@ -53,5 +54,6 @@
   }
   window.nesboothCloudCreateSale = null;
   loadCloudData();
-  setInterval(loadCloudData, 30000);
+  // Antrean diperbarui cepat agar layar kasir/perangkat lain mengikuti status yang sama.
+  setInterval(loadCloudData, 5000);
 })();

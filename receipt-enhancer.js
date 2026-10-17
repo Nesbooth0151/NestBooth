@@ -78,8 +78,22 @@
   }
   renderDailyTransactions(); renderSixMonthReport();
   const baseRenderQueue = renderQueue;
-  renderQueue = function(){baseRenderQueue();if(location.protocol==='http:')fetch('/api/queue',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({queue,current})}).catch(()=>{})};
+  renderQueue = function(){ baseRenderQueue(); };
   renderQueue();
+  const originalStartQueue = startQueue;
+  startQueue = function(index) {
+    const before = new Map(queue.map(item => [item.id, item.status]));
+    originalStartQueue(index);
+    if (!/\.onrender\.com$/i.test(location.hostname)) return;
+    queue.filter(item => item.id && before.get(item.id) !== item.status).forEach(item => {
+      fetch('/api/queue', {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: item.id, status: item.status})
+      }).then(response => {
+        if (!response.ok) throw new Error('Status antrean gagal disimpan');
+      }).catch(error => show(error.message || 'Status antrean gagal disimpan.'));
+    });
+  };
   const originalPay = confirmPay.onclick;
   confirmPay.onclick = () => {
     const subtotal = cart.reduce((total, entry) => total + (entry.unitPrice ?? products[entry.i][2]) * entry.q, 0);
@@ -99,7 +113,7 @@
         data.taxPercent = remote.taxPercent;
         data.total = remote.total;
         modalBg.classList.remove('show');
-        queue.push({n: data.queueNumber, name: '', items: data.items.reduce((sum, item) => sum + item.qty, 0) + ' item', status: 'Menunggu'});
+        queue.push({id: remote.queueId, n: data.queueNumber, name: '', items: data.items.reduce((sum, item) => sum + item.qty, 0) + ' item', status: 'Menunggu'});
         cart = []; renderCart(); renderQueue();
         saveSale(data); showReceipt(data);
         setTimeout(() => { renderDailyTransactions(); renderSixMonthReport(); }, 0);
