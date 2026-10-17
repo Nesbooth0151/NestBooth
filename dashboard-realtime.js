@@ -20,7 +20,7 @@
     const cards = [...document.querySelectorAll('#dashboard .dash-grid > .card.stat')];
     if (cards.length < 4) return;
     const now = new Date(), today = dayKey(now), previous = new Date(now); previous.setDate(previous.getDate() - 1);
-    const sales = Array.isArray(state.sales) ? state.sales : [];
+    const sales = (Array.isArray(state.sales) ? state.sales : []).filter(sale => (sale.payment_status || 'paid') === 'paid');
     const todaySales = sales.filter(sale => dayKey(new Date(sale.created_at)) === today);
     const yesterdaySales = sales.filter(sale => dayKey(new Date(sale.created_at)) === dayKey(previous));
     const todayTotal = todaySales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);

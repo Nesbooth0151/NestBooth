@@ -112,6 +112,18 @@ async function updateQueueStatus(payload) {
   return rows[0];
 }
 
+async function manageSale(payload) {
+  const id = String(payload.id || '');
+  const action = String(payload.action || '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Transaksi tidak valid');
+  if (!['cancel', 'refund', 'payment_method'].includes(action)) throw new Error('Aksi transaksi tidak valid');
+  const result = await db('rpc/manage_pos_sale', {method: 'POST', body: JSON.stringify({
+    p_sale_id: id, p_action: action, p_payment_method: payload.payment_method || null
+  })});
+  if (!result?.id) throw new Error('Transaksi tidak dapat diperbarui');
+  return result;
+}
+
 function cleanName(value, label) {
   const text = String(value || '').trim();
   if (!text || text.length > 120) throw new Error(`${label} tidak valid`);
@@ -171,6 +183,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') return send(res, 200, await bootstrap());
     if (url.pathname === '/api/reports/sales' && req.method === 'GET') return send(res, 200, {sales: await salesReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
+    if (url.pathname === '/api/sales/manage' && req.method === 'PUT') return send(res, 200, await manageSale(await readBody(req)));
     if (url.pathname === '/api/settings' && req.method === 'PUT') return send(res, 200, await saveSettings(await readBody(req)));
     if (url.pathname === '/api/products' && req.method === 'POST') return send(res, 201, await saveProduct(await readBody(req)));
     if (url.pathname === '/api/products' && req.method === 'PUT') return send(res, 200, await saveProduct(await readBody(req), url.searchParams.get('id')));
