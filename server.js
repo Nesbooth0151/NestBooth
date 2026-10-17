@@ -111,12 +111,56 @@ async function updateQueueStatus(payload) {
   return rows[0];
 }
 
+function cleanName(value, label) {
+  const text = String(value || '').trim();
+  if (!text || text.length > 120) throw new Error(`${label} tidak valid`);
+  return text;
+}
+
+async function saveSettings(payload) {
+  const store_name = cleanName(payload.store_name, 'Nama toko');
+  const tax_percent = Number(payload.tax_percent);
+  const queue_prefix = cleanName(payload.queue_prefix, 'Awalan antrean').toUpperCase().slice(0, 4);
+  if (!Number.isFinite(tax_percent) || tax_percent < 0 || tax_percent > 100) throw new Error('Pajak tidak valid');
+  const rows = await db('store_settings?id=eq.1', {method: 'PATCH', body: JSON.stringify({store_name, tax_percent, queue_prefix})});
+  if (!rows?.[0]) throw new Error('Pengaturan toko tidak ditemukan');
+  return rows[0];
+}
+
+async function saveProduct(payload, id) {
+  const name = cleanName(payload.name, 'Nama menu');
+  const category = cleanName(payload.category, 'Kategori');
+  const price = Number(payload.price);
+  if (!Number.isFinite(price) || price < 0) throw new Error('Harga menu tidak valid');
+  const body = {name, category, price: Math.round(price)};
+  if (!id) return (await db('products', {method: 'POST', body: JSON.stringify({...body, is_active: true})}))[0];
+  return (await db(`products?id=eq.${encodeURIComponent(id)}`, {method: 'PATCH', body: JSON.stringify(body)}))[0];
+}
+
+async function saveMaterial(payload, id) {
+  const name = cleanName(payload.name, 'Nama bahan');
+  const unit = cleanName(payload.unit, 'Satuan').toLowerCase();
+  const stock = Number(payload.stock);
+  const min_stock = Number(payload.min_stock ?? 0);
+  if (!['gram', 'ml', 'pcs'].includes(unit) || !Number.isFinite(stock) || stock < 0 || !Number.isFinite(min_stock) || min_stock < 0) throw new Error('Data bahan tidak valid');
+  const body = {name, unit, stock, min_stock};
+  if (!id) return (await db('materials', {method: 'POST', body: JSON.stringify(body)}))[0];
+  return (await db(`materials?id=eq.${encodeURIComponent(id)}`, {method: 'PATCH', body: JSON.stringify(body)}))[0];
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
     if (url.pathname === '/api/health') return send(res, 200, {ok: true, databaseConfigured: Boolean(supabaseUrl && supabaseKey)});
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') return send(res, 200, await bootstrap());
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
+    if (url.pathname === '/api/settings' && req.method === 'PUT') return send(res, 200, await saveSettings(await readBody(req)));
+    if (url.pathname === '/api/products' && req.method === 'POST') return send(res, 201, await saveProduct(await readBody(req)));
+    if (url.pathname === '/api/products' && req.method === 'PUT') return send(res, 200, await saveProduct(await readBody(req), url.searchParams.get('id')));
+    if (url.pathname === '/api/products' && req.method === 'DELETE') return send(res, 200, await db(`products?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'PATCH', body: JSON.stringify({is_active: false})}));
+    if (url.pathname === '/api/materials' && req.method === 'POST') return send(res, 201, await saveMaterial(await readBody(req)));
+    if (url.pathname === '/api/materials' && req.method === 'PUT') return send(res, 200, await saveMaterial(await readBody(req), url.searchParams.get('id')));
+    if (url.pathname === '/api/materials' && req.method === 'DELETE') return send(res, 200, await db(`materials?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'DELETE'}));
     if (url.pathname === '/api/queue' && req.method === 'GET') {
       if (!supabaseUrl || !supabaseKey) return send(res, 200, {queue: [], current: 0});
       const items = await db('queue_items?select=*&status=neq.Selesai&order=created_at.asc');

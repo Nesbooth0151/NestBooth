@@ -53,6 +53,7 @@
     }
   }
   window.nesboothCloudCreateSale = null;
+  window.nesboothCloudReload = loadCloudData;
   loadCloudData();
   // Antrean diperbarui cepat agar layar kasir/perangkat lain mengikuti status yang sama.
   setInterval(loadCloudData, 5000);
