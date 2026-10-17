@@ -34,7 +34,14 @@
       window.nesboothCloudCreateSale = createCloudSale;
       products.splice(0, products.length, ...data.products.map(product => [product.name, product.category, Number(product.price), 100, '🥤']));
       materials.splice(0, materials.length, ...data.materials.map(material => ({name: material.name, unit: material.unit, stock: Number(material.stock), min: Number(material.min_stock)})));
-      recipes.splice(0, recipes.length, ...products.map(() => ({})));
+      const materialNames = new Map(data.materials.map(material => [material.id, material.name]));
+      const recipeByProduct = new Map(data.products.map(product => [product.id, {}]));
+      (data.recipes || []).forEach(recipe => {
+        const materialName = materialNames.get(recipe.material_id);
+        const productRecipe = recipeByProduct.get(recipe.product_id);
+        if (materialName && productRecipe) productRecipe[materialName] = Number(recipe.amount);
+      });
+      recipes.splice(0, recipes.length, ...data.products.map(product => recipeByProduct.get(product.id) || {}));
       if (data.settings) {
         appSettings = {storeName: data.settings.store_name, taxPercent: Number(data.settings.tax_percent), queuePrefix: data.settings.queue_prefix};
         document.querySelector('.brand').childNodes[1].textContent = ' ' + appSettings.storeName;

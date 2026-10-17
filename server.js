@@ -56,14 +56,15 @@ async function db(endpoint, options = {}) {
 }
 
 async function bootstrap() {
-  const [settings, products, materials, queues, sales] = await Promise.all([
+  const [settings, products, materials, recipes, queues, sales] = await Promise.all([
     db('store_settings?select=*&id=eq.1'),
     db('products?select=*&is_active=eq.true&order=created_at.asc'),
     db('materials?select=*&order=name.asc'),
+    db('product_recipes?select=*'),
     db('queue_items?select=*&status=neq.Selesai&order=created_at.asc'),
     db('sales?select=*&order=created_at.desc&limit=500')
   ]);
-  return {settings: settings[0] || null, products, materials, queues, sales};
+  return {settings: settings[0] || null, products, materials, recipes, queues, sales};
 }
 
 async function createSale(payload) {
@@ -122,6 +123,21 @@ async function manageSale(payload) {
   })});
   if (!result?.id) throw new Error('Transaksi tidak dapat diperbarui');
   return result;
+}
+
+async function saveRecipe(payload) {
+  const product_id = String(payload.product_id || ''), material_id = String(payload.material_id || '');
+  const amount = Number(payload.amount);
+  if (!/^[0-9a-f-]{36}$/i.test(product_id) || !/^[0-9a-f-]{36}$/i.test(material_id) || !Number.isFinite(amount) || amount <= 0) throw new Error('Data resep tidak valid');
+  const existing = await db(`product_recipes?select=product_id&product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}`);
+  if (existing.length) return (await db(`product_recipes?product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}`, {method: 'PATCH', body: JSON.stringify({amount})}))[0];
+  return (await db('product_recipes', {method: 'POST', body: JSON.stringify({product_id, material_id, amount})}))[0];
+}
+
+async function deleteRecipe(url) {
+  const product_id = String(url.searchParams.get('product_id') || ''), material_id = String(url.searchParams.get('material_id') || '');
+  if (!/^[0-9a-f-]{36}$/i.test(product_id) || !/^[0-9a-f-]{36}$/i.test(material_id)) throw new Error('Resep tidak valid');
+  return db(`product_recipes?product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}`, {method: 'DELETE'});
 }
 
 function cleanName(value, label) {
@@ -191,6 +207,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials' && req.method === 'POST') return send(res, 201, await saveMaterial(await readBody(req)));
     if (url.pathname === '/api/materials' && req.method === 'PUT') return send(res, 200, await saveMaterial(await readBody(req), url.searchParams.get('id')));
     if (url.pathname === '/api/materials' && req.method === 'DELETE') return send(res, 200, await db(`materials?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'DELETE'}));
+    if (url.pathname === '/api/recipes' && req.method === 'POST') return send(res, 201, await saveRecipe(await readBody(req)));
+    if (url.pathname === '/api/recipes' && req.method === 'DELETE') return send(res, 200, await deleteRecipe(url));
     if (url.pathname === '/api/queue' && req.method === 'GET') {
       if (!supabaseUrl || !supabaseKey) return send(res, 200, {queue: [], current: 0});
       const items = await db('queue_items?select=*&status=neq.Selesai&order=created_at.asc');
