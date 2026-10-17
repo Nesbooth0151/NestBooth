@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kasirkita-pos-v7';
+const CACHE_NAME = 'kasirkita-pos-v8';
 const APP_FILES = [
   './',
   './index.html',
@@ -30,6 +30,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  // Data transaksi harus selalu terbaru. Jangan pernah menyimpan respons API
+  // (termasuk respons error lama) ke cache browser.
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   const freshFiles = event.request.mode === 'navigate' || /\.(js|css|html)$/.test(url.pathname);
   if (freshFiles) {
     event.respondWith(
