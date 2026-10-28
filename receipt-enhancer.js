@@ -17,7 +17,6 @@
     const subtotalAmount = cart.reduce((total, entry) => total + (entry.unitPrice ?? products[entry.i][2]) * entry.q, 0);
     const totalAmount = subtotalAmount;
     cartItems.innerHTML = cart.length ? cart.map(entry => `<div class="item"><div><div class="item-name">${products[entry.i][0]}</div>${entry.variant ? `<div class="item-price">${entry.variant}</div>` : ''}<div class="item-price">${rupiah(entry.unitPrice ?? products[entry.i][2])}</div></div><div class="qty"><button onclick="change(${entry.i},-1,'${encodeURIComponent(entry.variant || '')}')">−</button><b>${entry.q}</b><button onclick="change(${entry.i},1,'${encodeURIComponent(entry.variant || '')}')">+</button></div></div>`).join('') : '<div class="empty">Keranjang masih kosong<br><small>Pilih produk untuk memulai transaksi</small></div>';
-    document.getElementById('subtotal').textContent = rupiah(subtotalAmount);
     document.getElementById('total').textContent = rupiah(totalAmount);
     document.getElementById('count').textContent = cart.reduce((total, entry) => total + entry.q, 0) + ' item';
     payBtn.disabled = !cart.length;
