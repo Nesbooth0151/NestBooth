@@ -127,17 +127,20 @@ async function manageSale(payload) {
 
 async function saveRecipe(payload) {
   const product_id = String(payload.product_id || ''), material_id = String(payload.material_id || '');
+  const variant = String(payload.variant || '').trim();
   const amount = Number(payload.amount);
-  if (!/^[0-9a-f-]{36}$/i.test(product_id) || !/^[0-9a-f-]{36}$/i.test(material_id) || !Number.isFinite(amount) || amount <= 0) throw new Error('Data resep tidak valid');
-  const existing = await db(`product_recipes?select=product_id&product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}`);
-  if (existing.length) return (await db(`product_recipes?product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}`, {method: 'PATCH', body: JSON.stringify({amount})}))[0];
-  return (await db('product_recipes', {method: 'POST', body: JSON.stringify({product_id, material_id, amount})}))[0];
+  if (!/^[0-9a-f-]{36}$/i.test(product_id) || !/^[0-9a-f-]{36}$/i.test(material_id) || variant.length > 80 || !Number.isFinite(amount) || amount <= 0) throw new Error('Data resep tidak valid');
+  const filter = `product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}&variant=eq.${encodeURIComponent(variant)}`;
+  const existing = await db(`product_recipes?select=product_id&${filter}`);
+  if (existing.length) return (await db(`product_recipes?${filter}`, {method: 'PATCH', body: JSON.stringify({amount})}))[0];
+  return (await db('product_recipes', {method: 'POST', body: JSON.stringify({product_id, material_id, variant, amount})}))[0];
 }
 
 async function deleteRecipe(url) {
   const product_id = String(url.searchParams.get('product_id') || ''), material_id = String(url.searchParams.get('material_id') || '');
-  if (!/^[0-9a-f-]{36}$/i.test(product_id) || !/^[0-9a-f-]{36}$/i.test(material_id)) throw new Error('Resep tidak valid');
-  return db(`product_recipes?product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}`, {method: 'DELETE'});
+  const variant = String(url.searchParams.get('variant') || '').trim();
+  if (!/^[0-9a-f-]{36}$/i.test(product_id) || !/^[0-9a-f-]{36}$/i.test(material_id) || variant.length > 80) throw new Error('Resep tidak valid');
+  return db(`product_recipes?product_id=eq.${encodeURIComponent(product_id)}&material_id=eq.${encodeURIComponent(material_id)}&variant=eq.${encodeURIComponent(variant)}`, {method: 'DELETE'});
 }
 
 function cleanName(value, label) {
