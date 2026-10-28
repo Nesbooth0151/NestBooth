@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Layar Antrean — NesBooth</title>
   <style>
-    :root{--red:#a51622;--deep:#190f16;--cream:#fff7e9}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#111;color:#fff;font-family:Inter,Arial,sans-serif;overflow:hidden}.screen{display:grid;grid-template-columns:minmax(265px,31vw) 1fr;min-height:100vh}.queue-panel{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:4.4vh 3.4vw;background:linear-gradient(150deg,#ba1828 0%,#63151e 44%,#170d14 100%);overflow:hidden}.queue-panel:before,.queue-panel:after{content:"";position:absolute;border:2px solid #ffffff2b;border-radius:50%;transform:rotate(-33deg)}.queue-panel:before{width:130%;height:38%;top:-12%;left:-44%}.queue-panel:after{width:145%;height:48%;right:-73%;bottom:-14%}.brand,.queue-content,.queue-footer{position:relative;z-index:1}.brand{font-size:clamp(20px,2vw,34px);font-weight:900}.brand b{display:inline-grid;place-items:center;width:1.3em;height:1.3em;border-radius:.28em;background:#fff;color:var(--red);font-size:.73em;margin-right:.35em}.queue-content{margin:auto 0}.label{text-transform:uppercase;letter-spacing:.13em;color:#ffe4b4;font-size:clamp(12px,1.15vw,19px);font-weight:800}.number{font-size:clamp(108px,14vw,235px);line-height:.88;font-weight:950;letter-spacing:-.08em;margin:2.5vh 0;text-shadow:0 5px 0 #0003}.line{height:1px;background:#ffffff55;margin:3vh 0}.next{font-size:clamp(58px,7.5vw,126px);line-height:1;margin-top:1vh;font-weight:900}.queue-footer{font-size:clamp(12px,1vw,17px);color:#ffe4b4}.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;background:#c6e975;box-shadow:0 0 12px #c6e975;margin-right:.5em}.promo{position:relative;overflow:hidden;background:#0f2433}.slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;background:#101820}.slide.active{opacity:1}.slide img{width:100%;height:100%;object-fit:contain;background:#101820}.promo-caption{position:absolute;right:3.2vw;bottom:3.4vh;z-index:2;padding:.55em .9em;border-radius:999px;background:#101820a6;color:#fff;font-size:clamp(12px,1vw,18px);font-weight:700;letter-spacing:.04em}.clock{position:absolute;right:3.2vw;top:3vh;z-index:2;padding:.4em .75em;border-radius:.45em;background:#101820a6;color:#fff;font-size:clamp(16px,1.4vw,26px);font-weight:800}@media(max-width:750px){body{overflow:auto}.screen{grid-template-columns:1fr;min-height:100vh}.queue-panel{min-height:49vh;padding:32px}.promo{min-height:51vh}.number{font-size:29vw}.next{font-size:18vw}}
+    :root{--side:#111216;--muted:#bdc4d2;--white:#f7f9ff}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#111;color:var(--white);font-family:Inter,Arial,sans-serif;overflow:hidden}.screen{display:grid;grid-template-columns:minmax(265px,31vw) 1fr;min-height:100vh}.queue-panel{display:flex;flex-direction:column;align-items:center;padding:4.5vh 2.2vw;background:linear-gradient(180deg,#16171c,#090a0d);text-align:center}.brand{font-size:clamp(20px,2vw,34px);font-weight:900;align-self:flex-start}.brand b{display:inline-grid;place-items:center;width:1.3em;height:1.3em;border-radius:.28em;background:#d81f35;color:#fff;font-size:.73em;margin-right:.35em}.queue-content{width:100%;margin:auto 0}.title{font-size:clamp(18px,1.65vw,28px);font-weight:800;letter-spacing:-.04em}.service-state{margin-top:.45em;color:var(--muted);font-size:clamp(12px,1.05vw,18px);font-weight:700}.number{font-size:clamp(108px,14vw,235px);line-height:.9;font-weight:950;letter-spacing:-.08em;margin:3.8vh 0 3vh;text-shadow:0 0 18px #a9caff3d}.next-label{width:100%;padding:.75em;background:#becde0;color:#fff;font-size:clamp(13px,1.15vw,20px);font-weight:850;border-radius:.12em}.next{font-size:clamp(58px,7.5vw,126px);line-height:1;margin:3vh 0 .35vh;font-weight:900;color:#b8c7dc}.estimate{color:var(--muted);font-size:clamp(14px,1.25vw,22px);font-weight:700}.queue-footer{font-size:clamp(12px,1vw,17px);color:var(--muted)}.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;background:#91d376;box-shadow:0 0 12px #91d376;margin-right:.5em}.promo{position:relative;overflow:hidden;background:#0f2433}.slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;background:#101820}.slide.active{opacity:1}.slide img{width:100%;height:100%;object-fit:contain;background:#101820}.promo-caption{position:absolute;right:3.2vw;bottom:3.4vh;z-index:2;padding:.55em .9em;border-radius:999px;background:#101820a6;color:#fff;font-size:clamp(12px,1vw,18px);font-weight:700;letter-spacing:.04em}.clock{position:absolute;right:3.2vw;top:3vh;z-index:2;padding:.4em .75em;border-radius:.45em;background:#101820a6;color:#fff;font-size:clamp(16px,1.4vw,26px);font-weight:800}@media(max-width:750px){body{overflow:auto}.screen{grid-template-columns:1fr;min-height:100vh}.queue-panel{min-height:49vh;padding:32px}.promo{min-height:51vh}.number{font-size:29vw}.next{font-size:18vw}}
   </style>
 </head>
 <body>
@@ -13,11 +13,12 @@
     <section class="queue-panel">
       <div class="brand"><b>N</b>NesBooth</div>
       <div class="queue-content">
-        <div class="label">Nomor antrean dipanggil</div>
+        <div class="title">Nomor Antrean</div>
+        <div id="service-state" class="service-state">Dilayani</div>
         <div id="number" class="number">—</div>
-        <div class="line"></div>
-        <div class="label">Antrean berikutnya</div>
+        <div class="next-label">Antrean Berikutnya</div>
         <div id="next" class="next">—</div>
+        <div id="estimate" class="estimate">— menit</div>
       </div>
       <div class="queue-footer"><span class="dot"></span><span id="status">Menghubungkan antrean…</span></div>
     </section>
@@ -33,12 +34,21 @@
 <script>
 let last = '', slideIndex = 0;
 const slides = [...document.querySelectorAll('.slide')];
+const number = document.getElementById('number');
+const next = document.getElementById('next');
+const serviceState = document.getElementById('service-state');
+const estimate = document.getElementById('estimate');
+const status = document.getElementById('status');
+const clock = document.getElementById('clock');
 function draw(data) {
   const list = data.queue || [];
   const index = Number.isInteger(data.current) && data.current >= 0 ? data.current : -1;
   const now = list[index]?.status === 'Diproses' ? list[index] : list.find(item => item.status === 'Diproses');
   const upcoming = list.find(item => item.status === 'Menunggu');
   number.textContent = now?.n || '—'; next.textContent = upcoming?.n || '—';
+  serviceState.textContent = now ? 'Dilayani' : 'Belum ada antrean dipanggil';
+  const waitingAhead = upcoming ? list.filter(item => item.status === 'Menunggu' && Number(item.n) <= Number(upcoming.n)).length : 0;
+  estimate.textContent = upcoming ? `±${Math.max(1, waitingAhead) * 6} menit` : '— menit';
   const key = now?.n || '';
   if (key && key !== last) { last = key; try { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance('Nomor antrean ' + key + ', silakan menuju kasir.')); } catch (error) {} }
 }
