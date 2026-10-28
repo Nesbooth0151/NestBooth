@@ -1,16 +1,55 @@
 <!doctype html>
 <html lang="id">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Layar Antrian — KasirKita</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Layar Antrean — NesBooth</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 82% 10%,#27698e 0,#102b46 39%,#081c30 100%);font-family:Inter,system-ui,sans-serif;color:#fff;overflow:hidden}.top{height:15vh;padding:4.2vh 6vw;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ffffff22}.brand{font-weight:800;font-size:clamp(20px,2.3vw,36px)}.brand i{font-style:normal;background:#1c92ff;padding:.18em .44em;border-radius:.28em;margin-right:.3em}.clock{color:#d7e9f7;font-size:clamp(18px,2vw,30px)}main{min-height:75vh;display:grid;grid-template-columns:1.4fr .9fr;align-items:center;padding:4vh 7vw;gap:5vw}.label{letter-spacing:.16em;text-transform:uppercase;font-size:clamp(15px,1.7vw,25px);color:#a9cbe2}.number{font-size:clamp(120px,20vw,300px);line-height:.88;font-weight:900;color:#71e4b5;letter-spacing:-.06em;margin:2.5vh 0}.customer{font-size:clamp(24px,3vw,46px);font-weight:700}.side{background:#ffffff10;border:1px solid #ffffff22;border-radius:2vw;padding:4vh 3vw}.side h2{font-size:clamp(19px,2vw,31px);margin:0 0 3vh;color:#ddecf8}.next{font-size:clamp(60px,8vw,130px);font-weight:850;color:#fff}.hint{font-size:clamp(15px,1.4vw,22px);color:#bcd4e8;margin-top:1vh}.bottom{height:10vh;background:#071827aa;display:flex;align-items:center;padding:0 6vw;color:#c7ddeb;font-size:clamp(14px,1.6vw,24px)}.dot{display:inline-block;width:.65em;height:.65em;border-radius:99px;background:#4ce198;margin-right:.55em;box-shadow:0 0 12px #4ce198}@media(max-width:600px){main{grid-template-columns:1fr;text-align:center;padding:5vh 6vw;gap:2vh}.side{padding:2vh}.number{font-size:30vw}.top{height:13vh}.bottom{height:9vh}}
+    :root{--red:#a51622;--deep:#190f16;--cream:#fff7e9}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#111;color:#fff;font-family:Inter,Arial,sans-serif;overflow:hidden}.screen{display:grid;grid-template-columns:minmax(265px,31vw) 1fr;min-height:100vh}.queue-panel{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:4.4vh 3.4vw;background:linear-gradient(150deg,#ba1828 0%,#63151e 44%,#170d14 100%);overflow:hidden}.queue-panel:before,.queue-panel:after{content:"";position:absolute;border:2px solid #ffffff2b;border-radius:50%;transform:rotate(-33deg)}.queue-panel:before{width:130%;height:38%;top:-12%;left:-44%}.queue-panel:after{width:145%;height:48%;right:-73%;bottom:-14%}.brand,.queue-content,.queue-footer{position:relative;z-index:1}.brand{font-size:clamp(20px,2vw,34px);font-weight:900}.brand b{display:inline-grid;place-items:center;width:1.3em;height:1.3em;border-radius:.28em;background:#fff;color:var(--red);font-size:.73em;margin-right:.35em}.queue-content{margin:auto 0}.label{text-transform:uppercase;letter-spacing:.13em;color:#ffe4b4;font-size:clamp(12px,1.15vw,19px);font-weight:800}.number{font-size:clamp(108px,14vw,235px);line-height:.88;font-weight:950;letter-spacing:-.08em;margin:2.5vh 0;text-shadow:0 5px 0 #0003}.line{height:1px;background:#ffffff55;margin:3vh 0}.next{font-size:clamp(58px,7.5vw,126px);line-height:1;margin-top:1vh;font-weight:900}.queue-footer{font-size:clamp(12px,1vw,17px);color:#ffe4b4}.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;background:#c6e975;box-shadow:0 0 12px #c6e975;margin-right:.5em}.promo{position:relative;overflow:hidden;background:#0f2433}.slide{position:absolute;inset:0;opacity:0;transition:opacity 1s ease}.slide.active{opacity:1}.slide img{width:100%;height:100%;object-fit:cover}.promo-caption{position:absolute;right:3.2vw;bottom:3.4vh;z-index:2;padding:.55em .9em;border-radius:999px;background:#101820a6;color:#fff;font-size:clamp(12px,1vw,18px);font-weight:700;letter-spacing:.04em}.clock{position:absolute;right:3.2vw;top:3vh;z-index:2;padding:.4em .75em;border-radius:.45em;background:#101820a6;color:#fff;font-size:clamp(16px,1.4vw,26px);font-weight:800}@media(max-width:750px){body{overflow:auto}.screen{grid-template-columns:1fr;min-height:100vh}.queue-panel{min-height:49vh;padding:32px}.promo{min-height:51vh}.number{font-size:29vw}.next{font-size:18vw}}
   </style>
 </head>
-<body><header class="top"><div class="brand"><i>K</i>KasirKita</div><div id="clock" class="clock"></div></header><main><section><div class="label">Nomor sedang dipanggil</div><div id="number" class="number">A001</div><div id="customer" class="customer">Andi Saputra</div></section><section class="side"><h2>Nomor Berikutnya</h2><div id="next" class="next">A002</div><div class="hint">Silakan menunggu panggilan</div></section></main><footer class="bottom"><span class="dot"></span><span id="status">Tersambung ke sistem antrian</span></footer>
+<body>
+  <main class="screen">
+    <section class="queue-panel">
+      <div class="brand"><b>N</b>NesBooth</div>
+      <div class="queue-content">
+        <div class="label">Nomor antrean dipanggil</div>
+        <div id="number" class="number">—</div>
+        <div class="line"></div>
+        <div class="label">Antrean berikutnya</div>
+        <div id="next" class="next">—</div>
+      </div>
+      <div class="queue-footer"><span class="dot"></span><span id="status">Menghubungkan antrean…</span></div>
+    </section>
+    <section class="promo" aria-label="Promosi NesBooth">
+      <div class="slide active"><img src="assets/promo-neslo.png" alt="Promosi NESLO"></div>
+      <div class="slide"><img src="assets/promo-kopi-favorit.png" alt="Promosi Kopi Favorit"></div>
+      <div class="slide"><img src="assets/promo-milo.png" alt="Promosi MILO"></div>
+      <div class="slide"><img src="assets/promo-ice-roast.png" alt="Promosi Nescafé Ice Roast"></div>
+      <div id="clock" class="clock"></div>
+      <div class="promo-caption">Promo minuman NesBooth</div>
+    </section>
+  </main>
 <script>
-let last='';
-function draw(data){const list=data.queue||[],now=list[data.current||0],next=list.slice((data.current||0)+1).find(x=>x.status==='Menunggu');number.textContent=now?.n||'—';customer.textContent=now?.name||'Tidak ada antrian';nextEl.textContent=next?.n||'—';const key=now?.n||'';if(key&&key!==last){last=key;try{speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance('Nomor antrian '+key+', silakan menuju kasir.'))}catch(e){}}}
-async function poll(){try{const r=await fetch('/api/queue',{cache:'no-store'});if(!r.ok)throw Error();draw(await r.json());status.textContent='Tersambung ke sistem antrian'}catch(e){status.textContent='Menunggu koneksi ke sistem kasir'}finally{setTimeout(poll,1500)}}
-function time(){clock.textContent=new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}const nextEl=document.getElementById('next');time();setInterval(time,1000);poll();
-</script></body></html>
+let last = '', slideIndex = 0;
+const slides = [...document.querySelectorAll('.slide')];
+function draw(data) {
+  const list = data.queue || [];
+  const index = Number.isInteger(data.current) && data.current >= 0 ? data.current : -1;
+  const now = list[index]?.status === 'Diproses' ? list[index] : list.find(item => item.status === 'Diproses');
+  const upcoming = list.find(item => item.status === 'Menunggu');
+  number.textContent = now?.n || '—'; next.textContent = upcoming?.n || '—';
+  const key = now?.n || '';
+  if (key && key !== last) { last = key; try { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance('Nomor antrean ' + key + ', silakan menuju kasir.')); } catch (error) {} }
+}
+async function poll() {
+  try { const response = await fetch('/api/queue', {cache:'no-store'}); if (!response.ok) throw new Error(); draw(await response.json()); status.textContent = 'Antrean online tersambung'; }
+  catch (error) { status.textContent = 'Menunggu koneksi antrean'; }
+  finally { setTimeout(poll, 1500); }
+}
+function updateClock() { clock.textContent = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}); }
+function rotatePromo() { slides[slideIndex].classList.remove('active'); slideIndex = (slideIndex + 1) % slides.length; slides[slideIndex].classList.add('active'); }
+updateClock(); setInterval(updateClock, 1000); setInterval(rotatePromo, 7000); poll();
+</script>
+</body>
+</html>
