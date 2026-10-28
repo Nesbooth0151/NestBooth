@@ -11,6 +11,39 @@ create table if not exists public.product_recipes (
 
 -- Migrasi aman untuk tabel resep versi sebelumnya (yang belum punya varian).
 alter table public.product_recipes add column if not exists variant text not null default '';
+-- Versi lama memakai nama kolom quantity. Pindahkan aman menjadi amount
+-- supaya tidak ada dua kolom takaran yang dapat berbeda nilainya.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'product_recipes' and column_name = 'quantity'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'product_recipes' and column_name = 'amount'
+  ) then
+    execute 'alter table public.product_recipes rename column quantity to amount';
+  elsif exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'product_recipes' and column_name = 'quantity'
+  ) then
+    execute 'update public.product_recipes set amount = coalesce(amount, quantity)';
+    execute 'alter table public.product_recipes drop column quantity';
+  elsif exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'product_recipes' and column_name = 'qty'
+  ) and not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'product_recipes' and column_name = 'amount'
+  ) then
+    execute 'alter table public.product_recipes rename column qty to amount';
+  end if;
+end;
+$$;
+alter table public.product_recipes add column if not exists amount numeric;
+update public.product_recipes set amount = 1 where amount is null;
+alter table public.product_recipes alter column amount set not null;
+alter table public.product_recipes alter column amount set default 1;
 alter table public.product_recipes drop constraint if exists product_recipes_pkey;
 alter table public.product_recipes add primary key (product_id, material_id, variant);
 
