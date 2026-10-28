@@ -78,7 +78,25 @@
   }
   renderDailyTransactions(); renderSixMonthReport();
   const baseRenderQueue = renderQueue;
-  renderQueue = function(){ baseRenderQueue(); };
+  renderQueue = function(){
+    baseRenderQueue();
+    // Antrean yang belum selesai dapat ditutup manual setelah pesanan diterima.
+    // Tombol dibuat di sini agar tetap kompatibel dengan tampilan antrean lama.
+    document.querySelectorAll('#queueList .queue-item').forEach((row, index) => {
+      const item = queue[index];
+      if (!item || item.status === 'Selesai') return;
+      const button = document.createElement('button');
+      button.className = 'btn ghost';
+      button.type = 'button';
+      button.textContent = 'Selesai';
+      button.addEventListener('click', () => finishQueue(index));
+      row.appendChild(button);
+    });
+    if (!queue.some(item => item.status === 'Diproses')) {
+      nowNumber.textContent = '—';
+      nowName.textContent = 'Tidak ada antrean';
+    }
+  };
   renderQueue();
   const originalStartQueue = startQueue;
   startQueue = function(index) {
@@ -94,6 +112,31 @@
       }).catch(error => show(error.message || 'Status antrean gagal disimpan.'));
     });
   };
+  async function finishQueue(index) {
+    const item = queue[index];
+    if (!item || item.status === 'Selesai') return;
+    if (!window.confirm(`Selesaikan antrean ${item.n}?`)) return;
+    const previousStatus = item.status;
+    item.status = 'Selesai';
+    if (current === index) current = Math.max(0, queue.findIndex(entry => entry.status === 'Diproses'));
+    renderQueue();
+    if (!/\.onrender\.com$/i.test(location.hostname) || !item.id) {
+      show(`Antrean ${item.n} selesai.`);
+      return;
+    }
+    try {
+      const response = await fetch('/api/queue', {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id: item.id, status: 'Selesai'})
+      });
+      if (!response.ok) throw new Error('Status antrean gagal disimpan');
+      show(`Antrean ${item.n} selesai dan diperbarui untuk semua perangkat.`);
+    } catch (error) {
+      item.status = previousStatus;
+      renderQueue();
+      show(error.message || 'Status antrean gagal disimpan.');
+    }
+  }
   const originalPay = confirmPay.onclick;
   confirmPay.onclick = () => {
     const subtotal = cart.reduce((total, entry) => total + (entry.unitPrice ?? products[entry.i][2]) * entry.q, 0);
