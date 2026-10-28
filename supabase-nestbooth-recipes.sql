@@ -58,12 +58,21 @@ create table if not exists public.sale_stock_movements (
 
 grant select, insert, update, delete on public.product_recipes, public.sale_stock_movements to service_role;
 
+-- Rapikan nama bahan dari versi awal tanpa mengubah stok atau relasi resep.
+update public.materials
+set name = 'Nescafé Ice Roast Sachet'
+where name = 'Nescafé Ice Roast Sachet 4 g'
+  and not exists (
+    select 1 from public.materials material
+    where material.name = 'Nescafé Ice Roast Sachet'
+  );
+
 -- Tambahkan bahan bila belum ada. Stok awal sengaja 0 agar Anda mengisinya
 -- sesuai stok fisik yang benar sebelum mulai berjualan.
 insert into public.materials (name, unit, stock, min_stock)
 select source.name, source.unit, 0, 0
 from (values
-  ('Nescafé Ice Roast Sachet 4 g', 'pcs'),
+  ('Nescafé Ice Roast Sachet', 'pcs'),
   ('Creamer', 'gram'),
   ('Gula Aren', 'gram'),
   ('Air', 'ml'),
@@ -80,27 +89,27 @@ where not exists (select 1 from public.materials material where material.name = 
 insert into public.product_recipes (product_id, material_id, variant, amount)
 select product.id, material.id, recipe.variant, recipe.amount
 from (values
-  ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet 4 g', '', 2),
+  ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', '', 2),
   ('Nescafé Caffe Latte', 'Creamer', '', 25),
   ('Nescafé Caffe Latte', 'Gula Aren', '', 25),
   ('Nescafé Caffe Latte', 'Air', '', 120),
 
-  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet 4 g', '1 Shot Dingin', 1),
+  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet', '1 Shot Dingin', 1),
   ('Nescafé Ice Roast', 'Air', '1 Shot Dingin', 150),
-  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet 4 g', '2 Shot Dingin', 2),
+  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet', '2 Shot Dingin', 2),
   ('Nescafé Ice Roast', 'Air', '2 Shot Dingin', 150),
-  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet 4 g', '3 Shot Dingin', 3),
+  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet', '3 Shot Dingin', 3),
   ('Nescafé Ice Roast', 'Air', '3 Shot Dingin', 175),
-  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet 4 g', '1 Shot Panas', 1),
+  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet', '1 Shot Panas', 1),
   ('Nescafé Ice Roast', 'Air', '1 Shot Panas', 150),
-  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet 4 g', '2 Shot Panas', 2),
+  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet', '2 Shot Panas', 2),
   ('Nescafé Ice Roast', 'Air', '2 Shot Panas', 150),
-  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet 4 g', '3 Shot Panas', 3),
+  ('Nescafé Ice Roast', 'Nescafé Ice Roast Sachet', '3 Shot Panas', 3),
   ('Nescafé Ice Roast', 'Air', '3 Shot Panas', 175),
 
   ('NESLO', 'Milo 3 in 1 Sachet', '', 1),
   ('NESLO', 'Air', '', 100),
-  ('NESLO', 'Nescafé Ice Roast Sachet 4 g', '', 1),
+  ('NESLO', 'Nescafé Ice Roast Sachet', '', 2),
   ('NESLO', 'Susu Kental Manis', '', 15),
 
   ('Nestlé Milo', 'Milo 3 in 1 Sachet', '', 1),

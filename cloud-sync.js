@@ -43,7 +43,7 @@
       });
       recipes.splice(0, recipes.length, ...data.products.map(product => recipeByProduct.get(product.id) || {}));
       if (data.settings) {
-        appSettings = {storeName: data.settings.store_name, taxPercent: Number(data.settings.tax_percent), queuePrefix: data.settings.queue_prefix};
+        appSettings = {storeName: data.settings.store_name, taxPercent: 0, queuePrefix: data.settings.queue_prefix};
         document.querySelector('.brand').childNodes[1].textContent = ' ' + appSettings.storeName;
       }
       queue.splice(0, queue.length, ...data.queues.map(item => ({id: item.id, n: item.queue_number, name: '', items: item.item_count + ' item', status: item.status})));

@@ -85,8 +85,8 @@ async function createSale(payload) {
     return {name, qty, price};
   });
   const subtotal = safeItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const taxPercent = Number(settingsRows[0]?.tax_percent ?? 11);
-  const taxAmount = Math.round(subtotal * taxPercent / 100);
+  const taxPercent = 0;
+  const taxAmount = 0;
   const total = subtotal + taxAmount;
   const prefix = String(settingsRows[0]?.queue_prefix || 'A').toUpperCase();
   const jakartaToday = jakartaDate();
@@ -166,9 +166,8 @@ async function salesReport(from, to) {
 
 async function saveSettings(payload) {
   const store_name = cleanName(payload.store_name, 'Nama toko');
-  const tax_percent = Number(payload.tax_percent);
+  const tax_percent = 0;
   const queue_prefix = cleanName(payload.queue_prefix, 'Awalan antrean').toUpperCase().slice(0, 4);
-  if (!Number.isFinite(tax_percent) || tax_percent < 0 || tax_percent > 100) throw new Error('Pajak tidak valid');
   const rows = await db('store_settings?id=eq.1', {method: 'PATCH', body: JSON.stringify({store_name, tax_percent, queue_prefix})});
   if (!rows?.[0]) throw new Error('Pengaturan toko tidak ditemukan');
   return rows[0];

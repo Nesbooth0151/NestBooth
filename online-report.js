@@ -61,12 +61,12 @@
   function exportCsv() {
     if (!lastSales.length) { show('Tidak ada transaksi untuk diekspor.'); return; }
     const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const rows = [['No. Struk', 'Tanggal', 'Item', 'Pembayaran', 'Subtotal', 'Pajak', 'Total', 'Status']];
+    const rows = [['No. Struk', 'Tanggal', 'Item', 'Pembayaran', 'Subtotal', 'Total', 'Status']];
     lastSales.forEach(sale => rows.push([
       sale.receipt_number,
       new Date(sale.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta'}),
       (sale.items || []).map(item => `${item.qty}x ${item.name}`).join('; '),
-      sale.payment_method, sale.subtotal, sale.tax_amount, sale.total, sale.payment_status
+      sale.payment_method, sale.subtotal, sale.total, sale.payment_status
     ]));
     const blob = new Blob(['\uFEFF' + rows.map(row => row.map(quote).join(',')).join('\n')], {type: 'text/csv;charset=utf-8'});
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob);

@@ -13,14 +13,11 @@
   // Minuman langsung masuk ke keranjang tanpa pilihan level gula atau es.
   cart.forEach(item => delete item.variant);
   change = function(index, delta, encodedVariant = '') { const variant = decodeURIComponent(encodedVariant || ''); const entry = cart.find(item => item.i === index && (item.variant || '') === variant); if (!entry) return; entry.q += delta; if (entry.q < 1) cart = cart.filter(item => item !== entry); renderCart(); };
-  /* Perbaikan tampilan pajak kasir: jangan gunakan nama variabel yang sama dengan elemen #tax. */
   renderCart = function () {
     const subtotalAmount = cart.reduce((total, entry) => total + (entry.unitPrice ?? products[entry.i][2]) * entry.q, 0);
-    const taxAmount = Math.round(subtotalAmount * 0.11);
-    const totalAmount = subtotalAmount + taxAmount;
+    const totalAmount = subtotalAmount;
     cartItems.innerHTML = cart.length ? cart.map(entry => `<div class="item"><div><div class="item-name">${products[entry.i][0]}</div>${entry.variant ? `<div class="item-price">${entry.variant}</div>` : ''}<div class="item-price">${rupiah(entry.unitPrice ?? products[entry.i][2])}</div></div><div class="qty"><button onclick="change(${entry.i},-1,'${encodeURIComponent(entry.variant || '')}')">−</button><b>${entry.q}</b><button onclick="change(${entry.i},1,'${encodeURIComponent(entry.variant || '')}')">+</button></div></div>`).join('') : '<div class="empty">Keranjang masih kosong<br><small>Pilih produk untuk memulai transaksi</small></div>';
     document.getElementById('subtotal').textContent = rupiah(subtotalAmount);
-    document.getElementById('tax').textContent = rupiah(taxAmount);
     document.getElementById('total').textContent = rupiah(totalAmount);
     document.getElementById('count').textContent = cart.reduce((total, entry) => total + entry.q, 0) + ' item';
     payBtn.disabled = !cart.length;
@@ -32,7 +29,7 @@
     document.getElementById('receiptToPrint')?.remove();
     const wrapper = document.createElement('div'); wrapper.id = 'receiptToPrint'; wrapper.className = 'receipt-sheet';
     const lines = data.items.map(item => { const parts = String(item.name).split(' — '); const main = parts.shift(); const variant = parts.join(' — '); const options = variant ? variant.split(' • ').map(option => `<small style="display:block;padding-left:12px">${safe(option)}</small>`).join('') : ''; return `<div class="receipt-line"><span><b>${item.qty} ${safe(main)}</b>${options}</span><b>${rupiah(item.price * item.qty)}</b></div>`; }).join('');
-    wrapper.innerHTML = `<article class="receipt-paper"><h2>NesBooth</h2><p class="sub">Jl. Karya No.A3, Karang Berombak<br>Kec. Medan Bar., Kota Medan<br>Sumatera Utara 20117</p><div class="receipt-meta"><div>NO. ANTRIAN : <b>${safe(data.queueNumber)}</b></div><div>RCPT# : ${safe(data.receiptNumber)}</div><div>TANGGAL : ${safe(data.date)}</div><div>METODE : ${safe(data.method)}</div></div><div class="receipt-lines">${lines}</div><div class="receipt-line"><span>SUBTOTAL</span><span>${rupiah(data.subtotal)}</span></div><div class="receipt-line"><span>PAJAK (${data.taxPercent}%)</span><span>${rupiah(data.tax)}</span></div><div class="receipt-total"><span>TOTAL</span><span>${rupiah(data.total)}</span></div><p class="sub">Terima Kasih<br>Sampai jumpa kembali</p><div class="receipt-actions"><button class="close-receipt">Tutup</button><button class="print-receipt">🖨 Cetak Struk</button></div></article>`;
+    wrapper.innerHTML = `<article class="receipt-paper"><h2>NesBooth</h2><p class="sub">Jl. Karya No.A3, Karang Berombak<br>Kec. Medan Bar., Kota Medan<br>Sumatera Utara 20117</p><div class="receipt-meta"><div>NO. ANTRIAN : <b>${safe(data.queueNumber)}</b></div><div>RCPT# : ${safe(data.receiptNumber)}</div><div>TANGGAL : ${safe(data.date)}</div><div>METODE : ${safe(data.method)}</div></div><div class="receipt-lines">${lines}</div><div class="receipt-total"><span>TOTAL</span><span>${rupiah(data.total)}</span></div><p class="sub">Terima Kasih<br>Sampai jumpa kembali</p><div class="receipt-actions"><button class="close-receipt">Tutup</button><button class="print-receipt">🖨 Cetak Struk</button></div></article>`;
     document.body.appendChild(wrapper);
     wrapper.querySelector('.close-receipt').onclick = () => wrapper.remove();
     wrapper.querySelector('.print-receipt').onclick = () => window.print();
@@ -140,9 +137,9 @@
   const originalPay = confirmPay.onclick;
   confirmPay.onclick = () => {
     const subtotal = cart.reduce((total, entry) => total + (entry.unitPrice ?? products[entry.i][2]) * entry.q, 0);
-    const tax = Math.round(subtotal * 0.11);
+    const tax = 0;
     const queueNumber = claimDailyQueueNumber();
-    const data = { items: cart.map(entry => ({name: products[entry.i][0] + (entry.variant ? ' — ' + entry.variant : ''), price: entry.unitPrice ?? products[entry.i][2], qty: entry.q})), subtotal, tax, taxPercent: subtotal ? Number(((tax / subtotal) * 100).toFixed(1)) : 0, total: window.orderTotal, method, queueNumber, receiptNumber: 'NB'+Date.now().toString().slice(-6), date: new Date().toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) };
+    const data = { items: cart.map(entry => ({name: products[entry.i][0] + (entry.variant ? ' — ' + entry.variant : ''), price: entry.unitPrice ?? products[entry.i][2], qty: entry.q})), subtotal, tax, taxPercent: 0, total: window.orderTotal, method, queueNumber, receiptNumber: 'NB'+Date.now().toString().slice(-6), date: new Date().toLocaleString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) };
     // Saat POS dibuka dari server online, simpan dahulu ke database.
     // Di Render tidak boleh fallback ke localStorage: data itu tidak akan
     // terlihat oleh kasir/perangkat lain.

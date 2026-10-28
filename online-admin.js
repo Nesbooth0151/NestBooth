@@ -30,7 +30,7 @@
 
     if (form.id === 'settingsForm') return busy(button, async () => {
       await request('/api/settings', {method: 'PUT', body: JSON.stringify({
-        store_name: settingStoreName.value, tax_percent: Number(settingTax.value), queue_prefix: settingQueuePrefix.value
+        store_name: settingStoreName.value, tax_percent: 0, queue_prefix: settingQueuePrefix.value
       })});
       await reload(); show('Pengaturan toko tersimpan untuk semua perangkat.');
     });
