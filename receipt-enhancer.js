@@ -41,7 +41,8 @@
     if (state.day !== today) { state = {day: today, last: 0}; }
     state.last += 1;
     localStorage.setItem('nestbooth-queue-day', JSON.stringify(state));
-    const prefix = typeof appSettings !== 'undefined' ? appSettings.queuePrefix : 'A';
+    const storedPrefix = typeof appSettings !== 'undefined' ? appSettings.queuePrefix : '';
+    const prefix = String(storedPrefix || '').toUpperCase() === 'A' ? '' : storedPrefix;
     return String(prefix).toUpperCase() + String(state.last).padStart(3, '0');
   }
   try {

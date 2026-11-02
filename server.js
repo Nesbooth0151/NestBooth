@@ -103,7 +103,9 @@ async function prepareSale(payload, methodOverride) {
   });
   const subtotal = safeItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const total = subtotal;
-  const prefix = String(settingsRows[0]?.queue_prefix || 'A').toUpperCase();
+  // Awalan A lama dihilangkan agar antrean tampil 001, 002, dan seterusnya.
+  const storedPrefix = String(settingsRows[0]?.queue_prefix ?? '').trim().toUpperCase();
+  const prefix = storedPrefix === 'A' ? '' : storedPrefix;
   const jakartaToday = jakartaDate();
   return {
     items: safeItems, subtotal, total, prefix, queueDate: jakartaToday,
@@ -295,7 +297,7 @@ async function salesReport(from, to) {
 async function saveSettings(payload) {
   const store_name = cleanName(payload.store_name, 'Nama toko');
   const tax_percent = 0;
-  const queue_prefix = cleanName(payload.queue_prefix, 'Awalan antrean').toUpperCase().slice(0, 4);
+  const queue_prefix = String(payload.queue_prefix ?? '').trim().toUpperCase().slice(0, 4);
   const rows = await db('store_settings?id=eq.1', {method: 'PATCH', body: JSON.stringify({store_name, tax_percent, queue_prefix})});
   if (!rows?.[0]) throw new Error('Pengaturan toko tidak ditemukan');
   return rows[0];
