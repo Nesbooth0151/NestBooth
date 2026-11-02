@@ -61,6 +61,15 @@ async function db(endpoint, options = {}) {
   return data;
 }
 
+async function loginPosUser(payload) {
+  const role = String(payload.role || '').toLowerCase();
+  const pin = String(payload.pin || '');
+  if (!['admin', 'kasir', 'bar'].includes(role) || !/^\d{4,6}$/.test(pin)) throw new Error('Pilih peran dan masukkan PIN 4–6 digit');
+  const rows = await db('rpc/login_pos_user', {method: 'POST', body: JSON.stringify({p_role: role, p_pin: pin})});
+  if (!rows?.[0]) throw new Error('PIN tidak sesuai atau akun tidak aktif');
+  return {name: rows[0].user_name, role: rows[0].user_role, expiresAt: Date.now() + 12 * 60 * 60 * 1000};
+}
+
 async function bootstrap() {
   const [settings, products, materials, recipes, queues, sales] = await Promise.all([
     db('store_settings?select=*&id=eq.1'),
@@ -328,6 +337,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
     if (url.pathname === '/api/health') return send(res, 200, {ok: true, databaseConfigured: Boolean(supabaseUrl && supabaseKey)});
+    if (url.pathname === '/api/auth/login' && req.method === 'POST') return send(res, 200, await loginPosUser(await readBody(req)));
     if (url.pathname === '/api/midtrans/config' && req.method === 'GET') return send(res, 200, {configured: Boolean(midtransServerKey && midtransClientKey), clientKey: midtransClientKey || null, snapUrl: `${midtransBase}/snap/snap.js`});
     if (url.pathname === '/api/midtrans/payment' && req.method === 'POST') return send(res, 201, await createMidtransPayment(await readBody(req)));
     if (url.pathname === '/api/midtrans/notification' && req.method === 'POST') return send(res, 200, await handleMidtransNotification(await readBody(req)));
