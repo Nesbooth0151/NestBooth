@@ -24,6 +24,52 @@
       taxPercent: Number(result.taxPercent)
     };
   };
+  let snapLoader;
+  const loadSnap = async config => {
+    if (window.snap) return;
+    if (!snapLoader) snapLoader = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = config.snapUrl; script.dataset.clientKey = config.clientKey;
+      script.onload = resolve; script.onerror = () => reject(new Error('Layar pembayaran Midtrans tidak dapat dimuat'));
+      document.head.appendChild(script);
+    });
+    await snapLoader;
+    if (!window.snap) throw new Error('Midtrans tidak dapat dimuat');
+  };
+  const createMidtransPayment = async order => {
+    const config = await api('/api/midtrans/config');
+    if (!config.configured) throw new Error('Midtrans belum dikonfigurasi di Render');
+    const payment = await api('/api/midtrans/payment', {method: 'POST', body: JSON.stringify({items: order.items, method: 'QRIS'})});
+    await loadSnap(config);
+    return new Promise((resolve, reject) => {
+      let done = false, polling = false, attempts = 0;
+      const finish = (error, value) => {
+        if (done) return; done = true; clearInterval(timer);
+        if (error) reject(error); else resolve(value);
+      };
+      const check = async () => {
+        if (done || polling) return;
+        polling = true;
+        try {
+          const state = await api(`/api/midtrans/status?order_id=${encodeURIComponent(payment.orderId)}`);
+          if (state.status === 'paid' && state.queue) {
+            setTimeout(loadCloudData, 0);
+            finish(null, {queueNumber: state.queue.queue_number, queueId: state.queue.id, receiptNumber: payment.receiptNumber, subtotal: payment.subtotal, tax: 0, total: payment.total, taxPercent: 0});
+          } else if (state.status === 'failed') finish(new Error('Pembayaran QRIS tidak berhasil atau telah dibatalkan'));
+          else if (++attempts >= 180) finish(new Error('Status pembayaran masih menunggu. Jangan membuat tagihan QRIS kedua untuk pesanan ini.'));
+        } catch (error) { if (++attempts >= 10) finish(error); }
+        finally { polling = false; }
+      };
+      const timer = setInterval(check, 2000);
+      window.snap.pay(payment.token, {
+        onSuccess: check,
+        onPending: () => { if (typeof show === 'function') show('QRIS menunggu pembayaran. Transaksi akan diproses otomatis setelah lunas.'); },
+        onError: () => finish(new Error('Pembayaran QRIS tidak dapat diproses')),
+        onClose: () => { if (typeof show === 'function') show('Tagihan QRIS masih menunggu. Buka kembali pembayaran bila pelanggan belum membayar.'); }
+      });
+      check();
+    });
+  };
   async function loadCloudData() {
     try {
       const data = await api('/api/bootstrap');
@@ -32,6 +78,7 @@
       window.nesboothCloudError = '';
       window.dispatchEvent(new Event('nesbooth-cloud-updated'));
       window.nesboothCloudCreateSale = createCloudSale;
+      window.nesboothCloudCreateMidtransPayment = createMidtransPayment;
       products.splice(0, products.length, ...data.products.map(product => [product.name, product.category, Number(product.price), 100, '🥤']));
       materials.splice(0, materials.length, ...data.materials.map(material => ({name: material.name, unit: material.unit, stock: Number(material.stock), min: Number(material.min_stock)})));
       const materialNames = new Map(data.materials.map(material => [material.id, material.name]));
@@ -60,6 +107,7 @@
     }
   }
   window.nesboothCloudCreateSale = null;
+  window.nesboothCloudCreateMidtransPayment = null;
   window.nesboothCloudReload = loadCloudData;
   loadCloudData();
   // Antrean diperbarui cepat agar layar kasir/perangkat lain mengikuti status yang sama.

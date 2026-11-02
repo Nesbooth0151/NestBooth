@@ -142,9 +142,12 @@
     // Saat POS dibuka dari server online, simpan dahulu ke database.
     // Di Render tidak boleh fallback ke localStorage: data itu tidak akan
     // terlihat oleh kasir/perangkat lain.
-    if (typeof window.nesboothCloudCreateSale === 'function') {
+    const cloudPayment = method === 'QRIS'
+      ? window.nesboothCloudCreateMidtransPayment
+      : window.nesboothCloudCreateSale;
+    if (typeof cloudPayment === 'function') {
       confirmPay.disabled = true;
-      window.nesboothCloudCreateSale(data).then(remote => {
+      cloudPayment(data).then(remote => {
         data.queueNumber = remote.queueNumber;
         data.receiptNumber = remote.receiptNumber;
         data.subtotal = remote.subtotal;
@@ -156,7 +159,7 @@
         cart = []; renderCart(); renderQueue();
         saveSale(data); showReceipt(data);
         setTimeout(() => { renderDailyTransactions(); renderSixMonthReport(); }, 0);
-        show('Pembayaran berhasil. Nomor antrean ' + data.queueNumber + ' dibuat.');
+        show(method === 'QRIS' ? 'Pembayaran QRIS berhasil. Nomor antrean ' + data.queueNumber + ' dibuat.' : 'Pembayaran berhasil. Nomor antrean ' + data.queueNumber + ' dibuat.');
       }).catch(error => show(error.message || 'Pembayaran belum dapat disimpan.'))
         .finally(() => { confirmPay.disabled = false; });
       return;

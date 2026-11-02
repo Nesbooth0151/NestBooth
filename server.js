@@ -3,11 +3,16 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { URL } = require('node:url');
+const crypto = require('node:crypto');
 
 const root = __dirname;
 const port = Number(process.env.PORT || 3092);
 const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const midtransServerKey = process.env.MIDTRANS_SERVER_KEY || '';
+const midtransClientKey = process.env.MIDTRANS_CLIENT_KEY || '';
+const midtransProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+const midtransBase = midtransProduction ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -68,6 +73,17 @@ async function bootstrap() {
 }
 
 async function createSale(payload) {
+  const quote = await prepareSale(payload);
+  const created = await db('rpc/create_pos_sale', {method: 'POST', body: JSON.stringify({
+    p_items: quote.items, p_subtotal: quote.subtotal, p_tax_amount: 0, p_total: quote.total,
+    p_payment_method: quote.method, p_receipt_number: quote.receiptNumber,
+    p_queue_prefix: quote.prefix, p_queue_date: quote.queueDate
+  })});
+  if (!created?.sale || !created?.queue) throw new Error('Transaksi dan antrean tidak berhasil dibuat');
+  return {sale: created.sale, queue: created.queue, taxPercent: 0};
+}
+
+async function prepareSale(payload, methodOverride) {
   const items = Array.isArray(payload.items) ? payload.items : [];
   if (!items.length) throw new Error('Pesanan kosong');
   const [settingsRows, productRows] = await Promise.all([
@@ -85,20 +101,102 @@ async function createSale(payload) {
     return {name, qty, price};
   });
   const subtotal = safeItems.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const taxPercent = 0;
-  const taxAmount = 0;
-  const total = subtotal + taxAmount;
+  const total = subtotal;
   const prefix = String(settingsRows[0]?.queue_prefix || 'A').toUpperCase();
   const jakartaToday = jakartaDate();
-  const receiptNumber = `NB${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`;
-  const method = payload.method === 'QRIS' ? 'QRIS' : 'Tunai';
-  const created = await db('rpc/create_pos_sale', {method: 'POST', body: JSON.stringify({
-    p_items: safeItems, p_subtotal: subtotal, p_tax_amount: taxAmount, p_total: total,
-    p_payment_method: method, p_receipt_number: receiptNumber,
-    p_queue_prefix: prefix, p_queue_date: jakartaToday
+  return {
+    items: safeItems, subtotal, total, prefix, queueDate: jakartaToday,
+    receiptNumber: `NB${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`,
+    method: methodOverride || (payload.method === 'QRIS' ? 'QRIS' : 'Tunai')
+  };
+}
+
+function ensureMidtransConfigured() {
+  if (!midtransServerKey || !midtransClientKey) throw new Error('Midtrans belum dikonfigurasi di Render');
+}
+
+async function midtransRequest(endpoint, body) {
+  const response = await fetch(`${midtransBase}${endpoint}`, {
+    method: 'POST', headers: {
+      Authorization: `Basic ${Buffer.from(`${midtransServerKey}:`).toString('base64')}`,
+      'Content-Type': 'application/json', Accept: 'application/json'
+    }, body: JSON.stringify(body)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error_messages?.[0] || data.status_message || 'Midtrans tidak dapat membuat pembayaran');
+  return data;
+}
+
+async function createMidtransPayment(payload) {
+  ensureMidtransConfigured();
+  const quote = await prepareSale(payload, 'QRIS');
+  const orderId = `NB-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  const pending = await db('payment_orders', {method: 'POST', body: JSON.stringify({
+    order_id: orderId, status: 'pending', gross_amount: quote.total, items: quote.items,
+    receipt_number: quote.receiptNumber, queue_prefix: quote.prefix, queue_date: quote.queueDate,
+    payment_method: 'QRIS'
   })});
-  if (!created?.sale || !created?.queue) throw new Error('Transaksi dan antrean tidak berhasil dibuat');
-  return {sale: created.sale, queue: created.queue, taxPercent};
+  if (!pending?.[0]) throw new Error('Pesanan pembayaran tidak dapat disiapkan');
+  try {
+    const result = await midtransRequest('/snap/v1/transactions', {
+      transaction_details: {order_id: orderId, gross_amount: quote.total},
+      item_details: quote.items.map((item, index) => ({id: `item-${index + 1}`, name: item.name.slice(0, 50), price: item.price, quantity: item.qty})),
+      enabled_payments: ['gopay', 'shopeepay']
+    });
+    return {orderId, token: result.token, redirectUrl: result.redirect_url, receiptNumber: quote.receiptNumber, subtotal: quote.subtotal, total: quote.total};
+  } catch (error) {
+    await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}`, {method: 'PATCH', body: JSON.stringify({status: 'failed'})});
+    throw error;
+  }
+}
+
+function isMidtransSignatureValid(payload) {
+  const given = String(payload.signature_key || '');
+  const expected = crypto.createHash('sha512').update(`${payload.order_id || ''}${payload.status_code || ''}${payload.gross_amount || ''}${midtransServerKey}`).digest('hex');
+  return given.length === expected.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+}
+
+function midtransSucceeded(payload) {
+  return payload.transaction_status === 'settlement' || (payload.transaction_status === 'capture' && payload.fraud_status === 'accept');
+}
+
+async function handleMidtransNotification(payload) {
+  ensureMidtransConfigured();
+  if (!isMidtransSignatureValid(payload)) throw new Error('Tanda tangan Midtrans tidak valid');
+  const orderId = String(payload.order_id || '');
+  if (!orderId) throw new Error('Order Midtrans tidak valid');
+  const orders = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
+  const order = orders[0];
+  if (!order) throw new Error('Order pembayaran tidak ditemukan');
+  const transactionStatus = String(payload.transaction_status || '');
+  await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}`, {method: 'PATCH', body: JSON.stringify({midtrans_status: transactionStatus, midtrans_transaction_id: payload.transaction_id || null})});
+  if (!midtransSucceeded(payload) || order.sale_id) return {ok: true};
+  const claimed = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&sale_id=is.null&status=eq.pending`, {method: 'PATCH', body: JSON.stringify({status: 'processing'})});
+  if (!claimed?.[0]) return {ok: true};
+  try {
+    const created = await db('rpc/create_pos_sale', {method: 'POST', body: JSON.stringify({
+      p_items: order.items, p_subtotal: Number(order.gross_amount), p_tax_amount: 0, p_total: Number(order.gross_amount),
+      p_payment_method: 'QRIS', p_receipt_number: order.receipt_number,
+      p_queue_prefix: order.queue_prefix, p_queue_date: order.queue_date
+    })});
+    if (!created?.sale || !created?.queue) throw new Error('Transaksi QRIS tidak berhasil dibuat');
+    await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}`, {method: 'PATCH', body: JSON.stringify({status: 'paid', sale_id: created.sale.id})});
+  } catch (error) {
+    await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}`, {method: 'PATCH', body: JSON.stringify({status: 'pending'})});
+    throw error;
+  }
+  return {ok: true};
+}
+
+async function midtransPaymentStatus(url) {
+  const orderId = String(url.searchParams.get('order_id') || '');
+  if (!/^NB-[0-9]+-[0-9a-f]+$/i.test(orderId)) throw new Error('Order pembayaran tidak valid');
+  const rows = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
+  const order = rows[0];
+  if (!order) throw new Error('Order pembayaran tidak ditemukan');
+  let queue = null;
+  if (order.sale_id) queue = (await db(`queue_items?sale_id=eq.${encodeURIComponent(order.sale_id)}&select=id,queue_number,item_count`))[0] || null;
+  return {status: order.status, midtransStatus: order.midtrans_status || 'pending', saleId: order.sale_id || null, queue};
 }
 
 async function updateQueueStatus(payload) {
@@ -198,6 +296,10 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
     if (url.pathname === '/api/health') return send(res, 200, {ok: true, databaseConfigured: Boolean(supabaseUrl && supabaseKey)});
+    if (url.pathname === '/api/midtrans/config' && req.method === 'GET') return send(res, 200, {configured: Boolean(midtransServerKey && midtransClientKey), clientKey: midtransClientKey || null, snapUrl: `${midtransBase}/snap/snap.js`});
+    if (url.pathname === '/api/midtrans/payment' && req.method === 'POST') return send(res, 201, await createMidtransPayment(await readBody(req)));
+    if (url.pathname === '/api/midtrans/notification' && req.method === 'POST') return send(res, 200, await handleMidtransNotification(await readBody(req)));
+    if (url.pathname === '/api/midtrans/status' && req.method === 'GET') return send(res, 200, await midtransPaymentStatus(url));
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') return send(res, 200, await bootstrap());
     if (url.pathname === '/api/reports/sales' && req.method === 'GET') return send(res, 200, {sales: await salesReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
