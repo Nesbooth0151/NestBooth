@@ -62,7 +62,7 @@
       };
       const timer = setInterval(check, 2000);
       window.snap.pay(payment.token, {
-        onSuccess: check,
+        onSuccess: async () => { try { await api(`/api/midtrans/status?order_id=${encodeURIComponent(payment.orderId)}&verify=1`); } catch (error) {} check(); },
         onPending: () => { if (typeof show === 'function') show('QRIS menunggu pembayaran. Transaksi akan diproses otomatis setelah lunas.'); },
         onError: () => finish(new Error('Pembayaran QRIS tidak dapat diproses')),
         onClose: () => { if (typeof show === 'function') show('Tagihan QRIS masih menunggu. Buka kembali pembayaran bila pelanggan belum membayar.'); }

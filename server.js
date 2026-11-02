@@ -13,6 +13,7 @@ const midtransServerKey = process.env.MIDTRANS_SERVER_KEY || '';
 const midtransClientKey = process.env.MIDTRANS_CLIENT_KEY || '';
 const midtransProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 const midtransBase = midtransProduction ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
+const midtransApiBase = midtransProduction ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -127,6 +128,15 @@ async function midtransRequest(endpoint, body) {
   return data;
 }
 
+async function midtransGetStatus(orderId) {
+  const response = await fetch(`${midtransApiBase}/v2/${encodeURIComponent(orderId)}/status`, {
+    headers: {Authorization: `Basic ${Buffer.from(`${midtransServerKey}:`).toString('base64')}`, Accept: 'application/json'}
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error_messages?.[0] || data.status_message || 'Status pembayaran Midtrans tidak dapat diperiksa');
+  return data;
+}
+
 async function createMidtransPayment(payload) {
   ensureMidtransConfigured();
   const quote = await prepareSale(payload, 'QRIS');
@@ -160,9 +170,7 @@ function midtransSucceeded(payload) {
   return payload.transaction_status === 'settlement' || (payload.transaction_status === 'capture' && payload.fraud_status === 'accept');
 }
 
-async function handleMidtransNotification(payload) {
-  ensureMidtransConfigured();
-  if (!isMidtransSignatureValid(payload)) throw new Error('Tanda tangan Midtrans tidak valid');
+async function applyMidtransStatus(payload) {
   const orderId = String(payload.order_id || '');
   if (!orderId) throw new Error('Order Midtrans tidak valid');
   const orders = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
@@ -188,12 +196,27 @@ async function handleMidtransNotification(payload) {
   return {ok: true};
 }
 
+async function handleMidtransNotification(payload) {
+  ensureMidtransConfigured();
+  if (!isMidtransSignatureValid(payload)) throw new Error('Tanda tangan Midtrans tidak valid');
+  return applyMidtransStatus(payload);
+}
+
 async function midtransPaymentStatus(url) {
   const orderId = String(url.searchParams.get('order_id') || '');
   if (!/^NB-[0-9]+-[0-9a-f]+$/i.test(orderId)) throw new Error('Order pembayaran tidak valid');
-  const rows = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
-  const order = rows[0];
+  let rows = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
+  let order = rows[0];
   if (!order) throw new Error('Order pembayaran tidak ditemukan');
+  // Bila webhook belum sampai, periksa langsung ke Midtrans sekali. Ini juga
+  // menyelaraskan pembayaran Sandbox yang sudah sukses saat tab kasir tertutup.
+  if (!order.midtrans_status || url.searchParams.get('verify') === '1') {
+    const gatewayStatus = await midtransGetStatus(orderId);
+    if (String(gatewayStatus.order_id || '') !== orderId) throw new Error('Status Midtrans tidak cocok');
+    await applyMidtransStatus(gatewayStatus);
+    rows = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
+    order = rows[0];
+  }
   let queue = null;
   if (order.sale_id) queue = (await db(`queue_items?sale_id=eq.${encodeURIComponent(order.sale_id)}&select=id,queue_number,item_count`))[0] || null;
   return {status: order.status, midtransStatus: order.midtrans_status || 'pending', saleId: order.sale_id || null, queue};
