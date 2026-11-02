@@ -175,7 +175,10 @@ async function applyMidtransStatus(payload) {
   if (!orderId) throw new Error('Order Midtrans tidak valid');
   const orders = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
   const order = orders[0];
-  if (!order) throw new Error('Order pembayaran tidak ditemukan');
+  // Midtrans Dashboard mengirim Order ID contoh ketika tombol "Test
+  // notification URL" dipakai. Setelah signature diverifikasi, respons 200
+  // cukup untuk membuktikan endpoint aktif; tidak boleh membuat sale baru.
+  if (!order) return {ok: true, ignored: true};
   const transactionStatus = String(payload.transaction_status || '');
   await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}`, {method: 'PATCH', body: JSON.stringify({midtrans_status: transactionStatus, midtrans_transaction_id: payload.transaction_id || null})});
   if (!midtransSucceeded(payload) || order.sale_id) return {ok: true};
