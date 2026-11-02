@@ -201,6 +201,10 @@ async function applyMidtransStatus(payload) {
 
 async function handleMidtransNotification(payload) {
   ensureMidtransConfigured();
+  // Tombol "Test notification URL" membuat Order ID sintetis di Dashboard.
+  // Notifikasi ini tidak pernah menyentuh pesanan POS dan aman diakui agar
+  // Dashboard dapat memverifikasi URL tanpa memerlukan transaksi nyata.
+  if (String(payload.order_id || '').startsWith('payment_notif_test_')) return {ok: true, ignored: true};
   if (!isMidtransSignatureValid(payload)) throw new Error('Tanda tangan Midtrans tidak valid');
   return applyMidtransStatus(payload);
 }
