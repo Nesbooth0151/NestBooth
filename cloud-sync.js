@@ -43,15 +43,23 @@
     await loadSnap(config);
     return new Promise((resolve, reject) => {
       let done = false, polling = false, attempts = 0;
+      const resumeCheck = () => {
+        // Snap pada perangkat mobile dapat membuka halaman/simulator di tab
+        // lain. Begitu kasir kembali ke POS, cek ulang langsung ke Midtrans.
+        if (!document.hidden) check(true);
+      };
       const finish = (error, value) => {
         if (done) return; done = true; clearInterval(timer);
+        document.removeEventListener('visibilitychange', resumeCheck);
+        window.removeEventListener('focus', resumeCheck);
         if (error) reject(error); else resolve(value);
       };
-      const check = async () => {
+      const check = async (verify = false) => {
         if (done || polling) return;
         polling = true;
         try {
-          const state = await api(`/api/midtrans/status?order_id=${encodeURIComponent(payment.orderId)}`);
+          const query = verify ? '&verify=1' : '';
+          const state = await api(`/api/midtrans/status?order_id=${encodeURIComponent(payment.orderId)}${query}`);
           if (state.status === 'paid' && state.queue) {
             setTimeout(loadCloudData, 0);
             finish(null, {queueNumber: state.queue.queue_number, queueId: state.queue.id, receiptNumber: payment.receiptNumber, subtotal: payment.subtotal, tax: 0, total: payment.total, taxPercent: 0});
@@ -61,8 +69,10 @@
         finally { polling = false; }
       };
       const timer = setInterval(check, 2000);
+      document.addEventListener('visibilitychange', resumeCheck);
+      window.addEventListener('focus', resumeCheck);
       window.snap.pay(payment.token, {
-        onSuccess: async () => { try { await api(`/api/midtrans/status?order_id=${encodeURIComponent(payment.orderId)}&verify=1`); } catch (error) {} check(); },
+        onSuccess: () => check(true),
         onPending: () => { if (typeof show === 'function') show('QRIS menunggu pembayaran. Transaksi akan diproses otomatis setelah lunas.'); },
         onError: () => finish(new Error('Pembayaran QRIS tidak dapat diproses')),
         onClose: () => { if (typeof show === 'function') show('Tagihan QRIS masih menunggu. Buka kembali pembayaran bila pelanggan belum membayar.'); }
