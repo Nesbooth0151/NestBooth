@@ -14,6 +14,9 @@ const midtransClientKey = process.env.MIDTRANS_CLIENT_KEY || '';
 const midtransProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 const midtransBase = midtransProduction ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
 const midtransApiBase = midtransProduction ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
+// Sesi disimpan di server, bukan dipercaya dari role di browser.
+// Server Render dapat direstart; pada kondisi itu pengguna cukup login kembali.
+const posSessions = new Map();
 const mime = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -31,6 +34,46 @@ function jakartaDate() {
 function send(res, status, body, headers = {}) {
   res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers});
   res.end(JSON.stringify(body));
+}
+
+class HttpError extends Error {
+  constructor(statusCode, message) { super(message); this.statusCode = statusCode; }
+}
+
+function createSession(user) {
+  const token = crypto.randomBytes(32).toString('base64url');
+  const expiresAt = Date.now() + 12 * 60 * 60 * 1000;
+  posSessions.set(token, {id: user.id, name: user.name, role: user.role, expiresAt});
+  return {token, expiresAt};
+}
+
+function requireSession(req) {
+  const match = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i);
+  const session = match && posSessions.get(match[1]);
+  if (!session || session.expiresAt <= Date.now()) {
+    if (match) posSessions.delete(match[1]);
+    throw new HttpError(401, 'Sesi login tidak valid atau telah berakhir. Silakan masuk kembali.');
+  }
+  return session;
+}
+
+function requireRole(req, roles) {
+  const session = requireSession(req);
+  if (!roles.includes(session.role)) throw new HttpError(403, 'Akses ditolak untuk peran pengguna ini');
+  return session;
+}
+
+function apiRoles(pathname, method) {
+  if (pathname === '/api/bootstrap' && method === 'GET') return ['admin', 'kasir'];
+  if (pathname === '/api/queue') return ['admin', 'kasir', 'bar'];
+  if (pathname === '/api/sales' && method === 'POST') return ['admin', 'kasir'];
+  if (pathname === '/api/sales/manage') return ['admin'];
+  if (pathname === '/api/midtrans/config' || pathname === '/api/midtrans/payment' || pathname === '/api/midtrans/status') return ['admin', 'kasir'];
+  if (pathname === '/api/reports/sales' || pathname === '/api/users') return ['admin'];
+  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
+  if (pathname === '/api/shifts') return ['admin', 'kasir'];
+  if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
+  return [];
 }
 
 function readBody(req) {
@@ -67,7 +110,11 @@ async function loginPosUser(payload) {
   if (!['admin', 'kasir', 'bar'].includes(role) || !/^\d{4,6}$/.test(pin)) throw new Error('Pilih peran dan masukkan PIN 4–6 digit');
   const rows = await db('rpc/login_pos_user', {method: 'POST', body: JSON.stringify({p_role: role, p_pin: pin})});
   if (!rows?.[0]) throw new Error('PIN tidak sesuai atau akun tidak aktif');
-  return {name: rows[0].user_name, role: rows[0].user_role, expiresAt: Date.now() + 12 * 60 * 60 * 1000};
+  const name = rows[0].user_name;
+  const users = await db(`pos_users?select=id,name,role&role=eq.${encodeURIComponent(role)}&name=eq.${encodeURIComponent(name)}&is_active=eq.true&limit=1`);
+  if (!users?.[0]) throw new Error('Akun pengguna tidak ditemukan');
+  const session = createSession(users[0]);
+  return {name: users[0].name, role: users[0].role, token: session.token, expiresAt: session.expiresAt};
 }
 
 async function listPosUsers() {
@@ -78,12 +125,10 @@ async function listPosUsers() {
   return {users, activities};
 }
 
-async function managePosUser(payload) {
-  // UI Admin adalah pintu masuk yang normal. Peran divalidasi lagi agar Kasir/Bar
-  // tidak dapat memakai endpoint ini dari halaman aplikasi.
-  if (String(payload.actor_role || '').toLowerCase() !== 'admin') throw new Error('Hanya Admin yang dapat mengelola pengguna');
+async function managePosUser(payload, session) {
+  if (session.role !== 'admin') throw new HttpError(403, 'Hanya Admin yang dapat mengelola pengguna');
   const action = String(payload.action || '').toLowerCase();
-  const actor = cleanName(payload.actor, 'Nama Admin');
+  const actor = session.name;
   const userId = payload.user_id ? String(payload.user_id) : null;
   if (userId && !/^[0-9a-f-]{36}$/i.test(userId)) throw new Error('ID pengguna tidak valid');
   if (!['create', 'change_pin', 'set_active'].includes(action)) throw new Error('Aksi pengguna tidak valid');
@@ -288,12 +333,12 @@ async function updateQueueStatus(payload) {
   return rows[0];
 }
 
-async function manageSale(payload) {
+async function manageSale(payload, session) {
   const id = String(payload.id || '');
   const action = String(payload.action || '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Transaksi tidak valid');
   if (!['cancel', 'refund', 'payment_method'].includes(action)) throw new Error('Aksi transaksi tidak valid');
-  const staff = action === 'payment_method' ? null : cleanName(payload.staff_name, 'Nama petugas');
+  const staff = action === 'payment_method' ? null : session.name;
   const reason = action === 'payment_method' ? null : String(payload.reason || '').trim();
   if (reason !== null && (reason.length < 3 || reason.length > 300)) throw new Error('Alasan pembatalan/refund harus 3–300 karakter');
   const result = await db('rpc/manage_pos_sale', {method: 'POST', body: JSON.stringify({
@@ -400,15 +445,15 @@ async function shiftStatus() {
   return {openShift: summary, recent};
 }
 
-async function openShift(payload) {
-  const cashier = cleanName(payload.cashier, 'Nama kasir');
+async function openShift(payload, session) {
+  const cashier = session.name;
   const opening_cash = Math.round(Number(payload.opening_cash));
   if (!Number.isFinite(opening_cash) || opening_cash < 0) throw new Error('Kas awal tidak valid');
   return db('rpc/open_pos_shift', {method: 'POST', body: JSON.stringify({p_cashier_name: cashier, p_opening_cash: opening_cash})});
 }
 
-async function closeShift(payload) {
-  const shift_id = String(payload.shift_id || ''), cashier = cleanName(payload.cashier, 'Nama kasir');
+async function closeShift(payload, session) {
+  const shift_id = String(payload.shift_id || ''), cashier = session.name;
   const counted_cash = Math.round(Number(payload.counted_cash)), notes = String(payload.notes || '').trim().slice(0, 300);
   if (!/^[0-9a-f-]{36}$/i.test(shift_id) || !Number.isFinite(counted_cash) || counted_cash < 0) throw new Error('Data tutup shift tidak valid');
   return db('rpc/close_pos_shift', {method: 'POST', body: JSON.stringify({p_shift_id: shift_id, p_closed_by: cashier, p_counted_cash: counted_cash, p_notes: notes})});
@@ -419,8 +464,17 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/api/health') return send(res, 200, {ok: true, databaseConfigured: Boolean(supabaseUrl && supabaseKey)});
     if (url.pathname === '/api/auth/login' && req.method === 'POST') return send(res, 200, await loginPosUser(await readBody(req)));
+    if (url.pathname === '/api/auth/logout' && req.method === 'POST') {
+      const match = String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i); if (match) posSessions.delete(match[1]);
+      return send(res, 200, {ok: true});
+    }
+    // Midtrans adalah satu-satunya pihak luar yang boleh mengirim webhook;
+    // tanda tangannya diverifikasi di handleMidtransNotification().
+    const roles = apiRoles(url.pathname, req.method);
+    const session = roles.length ? requireRole(req, roles) : null;
+    if (url.pathname.startsWith('/api/') && !roles.length && url.pathname !== '/api/midtrans/notification') throw new HttpError(404, 'API tidak ditemukan');
     if (url.pathname === '/api/users' && req.method === 'GET') return send(res, 200, await listPosUsers());
-    if (url.pathname === '/api/users' && req.method === 'POST') return send(res, 200, await managePosUser(await readBody(req)));
+    if (url.pathname === '/api/users' && req.method === 'POST') return send(res, 200, await managePosUser(await readBody(req), session));
     if (url.pathname === '/api/midtrans/config' && req.method === 'GET') return send(res, 200, {configured: Boolean(midtransServerKey && midtransClientKey), clientKey: midtransClientKey || null, snapUrl: `${midtransBase}/snap/snap.js`});
     if (url.pathname === '/api/midtrans/payment' && req.method === 'POST') return send(res, 201, await createMidtransPayment(await readBody(req)));
     if (url.pathname === '/api/midtrans/notification' && req.method === 'POST') return send(res, 200, await handleMidtransNotification(await readBody(req)));
@@ -428,7 +482,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') return send(res, 200, await bootstrap());
     if (url.pathname === '/api/reports/sales' && req.method === 'GET') return send(res, 200, {sales: await salesReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
-    if (url.pathname === '/api/sales/manage' && req.method === 'PUT') return send(res, 200, await manageSale(await readBody(req)));
+    if (url.pathname === '/api/sales/manage' && req.method === 'PUT') return send(res, 200, await manageSale(await readBody(req), session));
     if (url.pathname === '/api/settings' && req.method === 'PUT') return send(res, 200, await saveSettings(await readBody(req)));
     if (url.pathname === '/api/products' && req.method === 'POST') return send(res, 201, await saveProduct(await readBody(req)));
     if (url.pathname === '/api/products' && req.method === 'PUT') return send(res, 200, await saveProduct(await readBody(req), url.searchParams.get('id')));
@@ -439,8 +493,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
     if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
     if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
-    if (url.pathname === '/api/shifts/open' && req.method === 'POST') return send(res, 201, await openShift(await readBody(req)));
-    if (url.pathname === '/api/shifts/close' && req.method === 'POST') return send(res, 200, await closeShift(await readBody(req)));
+    if (url.pathname === '/api/shifts/open' && req.method === 'POST') return send(res, 201, await openShift(await readBody(req), session));
+    if (url.pathname === '/api/shifts/close' && req.method === 'POST') return send(res, 200, await closeShift(await readBody(req), session));
     if (url.pathname === '/api/recipes' && req.method === 'POST') return send(res, 201, await saveRecipe(await readBody(req)));
     if (url.pathname === '/api/recipes' && req.method === 'DELETE') return send(res, 200, await deleteRecipe(url));
     if (url.pathname === '/api/queue' && req.method === 'GET') {
@@ -452,7 +506,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/queue' && req.method === 'PUT') return send(res, 200, await updateQueueStatus(await readBody(req)));
   } catch (error) {
     console.error(`[NesBooth] ${req.method} ${url.pathname}:`, error.stack || error.message || error);
-    return send(res, 500, {error: error.message || 'Terjadi kesalahan server'});
+    return send(res, error.statusCode || 500, {error: error.message || 'Terjadi kesalahan server'});
   }
 
   const requested = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
