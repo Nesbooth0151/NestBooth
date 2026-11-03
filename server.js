@@ -70,6 +70,33 @@ async function loginPosUser(payload) {
   return {name: rows[0].user_name, role: rows[0].user_role, expiresAt: Date.now() + 12 * 60 * 60 * 1000};
 }
 
+async function listPosUsers() {
+  const [users, activities] = await Promise.all([
+    db('pos_users?select=id,name,role,is_active,created_at,updated_at&order=created_at.asc'),
+    db('user_activity_logs?select=id,actor_name,action,details,created_at&order=created_at.desc&limit=40')
+  ]);
+  return {users, activities};
+}
+
+async function managePosUser(payload) {
+  // UI Admin adalah pintu masuk yang normal. Peran divalidasi lagi agar Kasir/Bar
+  // tidak dapat memakai endpoint ini dari halaman aplikasi.
+  if (String(payload.actor_role || '').toLowerCase() !== 'admin') throw new Error('Hanya Admin yang dapat mengelola pengguna');
+  const action = String(payload.action || '').toLowerCase();
+  const actor = cleanName(payload.actor, 'Nama Admin');
+  const userId = payload.user_id ? String(payload.user_id) : null;
+  if (userId && !/^[0-9a-f-]{36}$/i.test(userId)) throw new Error('ID pengguna tidak valid');
+  if (!['create', 'change_pin', 'set_active'].includes(action)) throw new Error('Aksi pengguna tidak valid');
+  const result = await db('rpc/manage_pos_user', {method: 'POST', body: JSON.stringify({
+    p_action: action, p_actor: actor, p_user_id: userId,
+    p_name: action === 'create' ? cleanName(payload.name, 'Nama pengguna') : null,
+    p_role: action === 'create' ? String(payload.role || '').toLowerCase() : null,
+    p_pin: payload.pin ? String(payload.pin) : null,
+    p_is_active: action === 'set_active' ? Boolean(payload.is_active) : null
+  })});
+  return result;
+}
+
 async function bootstrap() {
   const [settings, products, materials, recipes, queues, sales] = await Promise.all([
     db('store_settings?select=*&id=eq.1'),
@@ -388,6 +415,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (url.pathname === '/api/health') return send(res, 200, {ok: true, databaseConfigured: Boolean(supabaseUrl && supabaseKey)});
     if (url.pathname === '/api/auth/login' && req.method === 'POST') return send(res, 200, await loginPosUser(await readBody(req)));
+    if (url.pathname === '/api/users' && req.method === 'GET') return send(res, 200, await listPosUsers());
+    if (url.pathname === '/api/users' && req.method === 'POST') return send(res, 200, await managePosUser(await readBody(req)));
     if (url.pathname === '/api/midtrans/config' && req.method === 'GET') return send(res, 200, {configured: Boolean(midtransServerKey && midtransClientKey), clientKey: midtransClientKey || null, snapUrl: `${midtransBase}/snap/snap.js`});
     if (url.pathname === '/api/midtrans/payment' && req.method === 'POST') return send(res, 201, await createMidtransPayment(await readBody(req)));
     if (url.pathname === '/api/midtrans/notification' && req.method === 'POST') return send(res, 200, await handleMidtransNotification(await readBody(req)));

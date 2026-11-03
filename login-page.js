@@ -3,7 +3,7 @@
   if (!/\.onrender\.com$/i.test(location.hostname)) return;
   const storageKey = 'nesbooth-pos-session';
   const permissions = {
-    admin: ['dashboard', 'kasir', 'antrian', 'produk', 'transaksi', 'laporan', 'shift', 'pengaturan'],
+    admin: ['dashboard', 'kasir', 'antrian', 'produk', 'transaksi', 'laporan', 'shift', 'users', 'pengaturan'],
     kasir: ['dashboard', 'kasir', 'antrian', 'transaksi', 'shift'],
     bar: ['antrian']
   };
@@ -29,6 +29,7 @@
     badge.innerHTML = `<b>${session.name}</b> · ${session.role}<button type="button">Keluar</button>`;
     badge.querySelector('button').onclick = () => { localStorage.removeItem(storageKey); location.reload(); };
     document.body.appendChild(badge);
+    document.dispatchEvent(new CustomEvent('pos-session-ready', {detail: session}));
   }
   overlay.querySelectorAll('.role-pick').forEach(button => button.onclick = () => {
     selectedRole = button.dataset.role; overlay.querySelector('.role-pick.active').classList.remove('active'); button.classList.add('active'); pinInput.focus();
