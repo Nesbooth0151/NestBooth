@@ -42,7 +42,15 @@
     wrapper.innerHTML = `<article class="receipt-paper"><h2>NESBOOTH</h2><p class="sub">STRUK PEMBAYARAN<br>Jl. Karya No.A3, Karang Berombak<br>Medan, Sumatera Utara 20117</p><div class="receipt-meta"><div>ANTRIAN : <b>${safe(data.queueNumber)}</b></div><div>RCPT# : ${safe(data.receiptNumber)}</div><div>TANGGAL : ${safe(data.date)}</div><div>BAYAR : ${safe(data.method)}</div></div><div class="receipt-lines">${lines}</div><div class="receipt-summary"><div class="receipt-total"><span>TOTAL</span><span>${rupiah(data.total)}</span></div><p class="sub">Terima kasih<br>Sampai jumpa kembali</p></div><div class="receipt-tail"></div><div class="receipt-actions"><button class="close-receipt">Tutup</button><button class="print-receipt">🖨 Cetak Struk</button></div></article>`;
     document.body.appendChild(wrapper);
     wrapper.querySelector('.close-receipt').onclick = () => { wrapper.remove(); pageStyle.remove(); };
-    wrapper.querySelector('.print-receipt').onclick = () => window.print();
+    wrapper.querySelector('.print-receipt').onclick = async () => {
+      const button = wrapper.querySelector('.print-receipt'); button.disabled = true; button.textContent = 'Mengirim…';
+      try {
+        if (typeof window.nesboothQzPrintReceipt === 'function' && await window.nesboothQzPrintReceipt(data, true)) {
+          show('Struk dikirim langsung ke printer.');
+        } else window.print();
+      } catch (error) { show(error.message || 'Cetak otomatis gagal. Membuka dialog cetak.'); window.print(); }
+      finally { button.disabled = false; button.textContent = '🖨 Cetak Struk'; }
+    };
   }
   const queueDay = () => new Date().toLocaleDateString('sv-SE');
   function claimDailyQueueNumber() {
@@ -170,6 +178,11 @@
         queue.push({id: remote.queueId, n: data.queueNumber, name: '', items: data.items.reduce((sum, item) => sum + item.qty, 0) + ' item', status: 'Menunggu'});
         cart = []; renderCart(); renderQueue();
         saveSale(data); showReceipt(data);
+        // Cetak otomatis bersifat opsional; kegagalan printer tidak boleh membatalkan transaksi.
+        if (typeof window.nesboothQzPrintReceipt === 'function') {
+          window.nesboothQzPrintReceipt(data).then(sent => { if (sent) show('Struk dikirim langsung ke printer.'); })
+            .catch(error => show(error.message || 'Struk belum dapat dicetak otomatis.'));
+        }
         setTimeout(() => { renderDailyTransactions(); renderSixMonthReport(); }, 0);
         show(method === 'QRIS' ? 'Pembayaran QRIS berhasil. Nomor antrean ' + data.queueNumber + ' dibuat.' : 'Pembayaran berhasil. Nomor antrean ' + data.queueNumber + ' dibuat.');
       }).catch(error => show(error.message || 'Pembayaran belum dapat disimpan.'))

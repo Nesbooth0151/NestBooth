@@ -7,8 +7,18 @@
     const action = button.dataset.action;
     const id = button.dataset.id;
     let payment_method = null;
-    if (action === 'cancel' && !confirm('Batalkan transaksi ini? Nilainya tidak lagi dihitung sebagai penjualan dan antreannya akan ditutup.')) return;
-    if (action === 'refund' && !confirm('Tandai transaksi ini sebagai refund? Nilainya tidak lagi dihitung sebagai penjualan dan antreannya akan ditutup.')) return;
+    let reason = null, staff_name = null;
+    if (action === 'cancel' || action === 'refund') {
+      const label = action === 'cancel' ? 'membatalkan' : 'merefund';
+      if (!confirm(`Yakin ${label} transaksi ini? Transaksi tidak dihapus, nilainya tidak lagi dihitung sebagai penjualan, dan antrean akan ditutup.`)) return;
+      reason = prompt(`Alasan ${action === 'cancel' ? 'pembatalan' : 'refund'}:`);
+      if (reason === null) return;
+      reason = reason.trim();
+      if (reason.length < 3) { show('Alasan minimal 3 karakter.'); return; }
+      try { staff_name = JSON.parse(localStorage.getItem('nesbooth-pos-session') || '{}').name || ''; } catch { staff_name = ''; }
+      if (!staff_name) { staff_name = prompt('Nama petugas:') || ''; }
+      if (staff_name.trim().length < 2) { show('Nama petugas wajib diisi.'); return; }
+    }
     if (action === 'payment_method') {
       const answer = prompt('Metode pembayaran baru: ketik Tunai atau QRIS', 'Tunai');
       if (answer === null) return;
@@ -19,7 +29,7 @@
     try {
       const response = await fetch('/api/sales/manage', {
         method: 'PUT', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id, action, payment_method})
+        body: JSON.stringify({id, action, payment_method, staff_name, reason})
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Transaksi tidak dapat diperbarui');

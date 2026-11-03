@@ -1,9 +1,10 @@
-const CACHE_NAME = 'kasirkita-pos-v48';
+const CACHE_NAME = 'kasirkita-pos-v50';
 const APP_FILES = [
   './',
   './index.html',
   './tv-display.html',
   './receipt-enhancer.js',
+  './qz-autoprint.js',
   './history-six-months.js',
   './mobile-navigation.js',
   './nest-menu.js',
