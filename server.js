@@ -216,7 +216,16 @@ async function handleMidtransNotification(payload) {
   // Notifikasi ini tidak pernah menyentuh pesanan POS dan aman diakui agar
   // Dashboard dapat memverifikasi URL tanpa memerlukan transaksi nyata.
   if (String(payload.order_id || '').startsWith('payment_notif_test_')) return {ok: true, ignored: true};
-  if (!isMidtransSignatureValid(payload)) throw new Error('Tanda tangan Midtrans tidak valid');
+  if (!isMidtransSignatureValid(payload)) {
+    // Konfirmasi langsung ke Midtrans bila signature notifikasi tidak sesuai
+    // dengan Server Key aktif. Ini tetap aman karena status API memakai Basic
+    // Auth Server Key dan nilai order serta total harus identik.
+    const verified = await midtransGetStatus(String(payload.order_id || ''));
+    const sameOrder = String(verified.order_id || '') === String(payload.order_id || '');
+    const sameAmount = Number(verified.gross_amount) === Number(payload.gross_amount);
+    if (!sameOrder || !sameAmount) throw new Error('Notifikasi Midtrans tidak dapat diverifikasi');
+    return applyMidtransStatus(verified);
+  }
   return applyMidtransStatus(payload);
 }
 
@@ -363,6 +372,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/queue' && req.method === 'PUT') return send(res, 200, await updateQueueStatus(await readBody(req)));
   } catch (error) {
+    console.error(`[NesBooth] ${req.method} ${url.pathname}:`, error.stack || error.message || error);
     return send(res, 500, {error: error.message || 'Terjadi kesalahan server'});
   }
 
