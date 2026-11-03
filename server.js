@@ -73,6 +73,7 @@ function apiRoles(pathname, method) {
   if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
   if (pathname === '/api/shifts') return ['admin', 'kasir'];
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
+  if (pathname === '/api/cash-expenses') return ['admin', 'kasir'];
   return [];
 }
 
@@ -456,13 +457,24 @@ async function shiftStatus() {
   const open = (await db('cashier_shifts?status=eq.open&select=*&limit=1'))[0] || null;
   let summary = null;
   if (open) {
-    const sales = await db(`sales?shift_id=eq.${encodeURIComponent(open.id)}&payment_status=eq.paid&select=total,payment_method`);
+    const [sales, expenses] = await Promise.all([
+      db(`sales?shift_id=eq.${encodeURIComponent(open.id)}&payment_status=eq.paid&select=total,payment_method`),
+      db(`cash_expenses?shift_id=eq.${encodeURIComponent(open.id)}&select=*&order=created_at.desc`)
+    ]);
     const cash_sales = sales.filter(sale => sale.payment_method === 'Tunai').reduce((total, sale) => total + Number(sale.total || 0), 0);
     const qris_sales = sales.filter(sale => sale.payment_method === 'QRIS').reduce((total, sale) => total + Number(sale.total || 0), 0);
-    summary = {...open, cash_sales, qris_sales, expected_cash: Number(open.opening_cash) + cash_sales, transaction_count: sales.length};
+    const cash_expenses = expenses.reduce((total, expense) => total + Number(expense.amount || 0), 0);
+    summary = {...open, cash_sales, qris_sales, cash_expenses, expenses, expected_cash: Number(open.opening_cash) + cash_sales - cash_expenses, transaction_count: sales.length};
   }
   const recent = await db('cashier_shifts?status=eq.closed&select=*&order=closed_at.desc&limit=12');
   return {openShift: summary, recent};
+}
+
+async function addCashExpense(payload, session) {
+  const shift_id = String(payload.shift_id || ''), category = String(payload.category || '').trim(), description = String(payload.description || '').trim();
+  const amount = Math.round(Number(payload.amount));
+  if (!/^[0-9a-f-]{36}$/i.test(shift_id) || category.length < 2 || category.length > 80 || description.length < 3 || description.length > 300 || !Number.isFinite(amount) || amount <= 0) throw new Error('Data pengeluaran kas tidak valid');
+  return db('rpc/add_pos_cash_expense', {method: 'POST', body: JSON.stringify({p_shift_id: shift_id, p_category: category, p_description: description, p_amount: amount, p_created_by: session.name})});
 }
 
 async function openShift(payload, session) {
@@ -517,6 +529,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
     if (url.pathname === '/api/shifts/open' && req.method === 'POST') return send(res, 201, await openShift(await readBody(req), session));
     if (url.pathname === '/api/shifts/close' && req.method === 'POST') return send(res, 200, await closeShift(await readBody(req), session));
+    if (url.pathname === '/api/cash-expenses' && req.method === 'POST') return send(res, 201, await addCashExpense(await readBody(req), session));
     if (url.pathname === '/api/recipes' && req.method === 'POST') return send(res, 201, await saveRecipe(await readBody(req)));
     if (url.pathname === '/api/recipes' && req.method === 'DELETE') return send(res, 200, await deleteRecipe(url));
     if (url.pathname === '/api/queue' && req.method === 'GET') {
