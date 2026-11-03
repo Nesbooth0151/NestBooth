@@ -4,7 +4,7 @@
   const storageKey = 'nesbooth-pos-session';
   const permissions = {
     admin: ['dashboard', 'kasir', 'antrian', 'produk', 'transaksi', 'laporan', 'shift', 'users', 'pengaturan'],
-    kasir: ['dashboard', 'kasir', 'antrian', 'transaksi', 'shift'],
+    kasir: ['dashboard', 'kasir', 'antrian', 'stockview', 'transaksi', 'shift'],
     bar: ['antrian']
   };
   const style = document.createElement('style');

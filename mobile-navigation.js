@@ -19,6 +19,9 @@
   nav.className = 'mobile-nav';
   nav.setAttribute('aria-label', 'Menu utama');
   desktopButtons.forEach((desktopButton) => {
+    // Login sudah menyembunyikan menu yang tidak boleh dipakai peran ini.
+    // Jangan membuat salinan menu tersembunyi di navigasi layar kecil.
+    if (desktopButton.style.display === 'none') return;
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.page = desktopButton.dataset.page;
