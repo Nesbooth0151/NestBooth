@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kasirkita-pos-v54';
+const CACHE_NAME = 'kasirkita-pos-v55';
 const APP_FILES = [
   './',
   './index.html',

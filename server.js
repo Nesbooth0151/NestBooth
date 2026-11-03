@@ -457,14 +457,16 @@ async function shiftStatus() {
   const open = (await db('cashier_shifts?status=eq.open&select=*&limit=1'))[0] || null;
   let summary = null;
   if (open) {
-    const [sales, expenses] = await Promise.all([
+    const [sales, expenses, materials] = await Promise.all([
       db(`sales?shift_id=eq.${encodeURIComponent(open.id)}&payment_status=eq.paid&select=total,payment_method`),
-      db(`cash_expenses?shift_id=eq.${encodeURIComponent(open.id)}&select=*&order=created_at.desc`)
+      db(`cash_expenses?shift_id=eq.${encodeURIComponent(open.id)}&select=*&order=created_at.desc`),
+      db('materials?select=id,name,unit')
     ]);
     const cash_sales = sales.filter(sale => sale.payment_method === 'Tunai').reduce((total, sale) => total + Number(sale.total || 0), 0);
     const qris_sales = sales.filter(sale => sale.payment_method === 'QRIS').reduce((total, sale) => total + Number(sale.total || 0), 0);
     const cash_expenses = expenses.reduce((total, expense) => total + Number(expense.amount || 0), 0);
-    summary = {...open, cash_sales, qris_sales, cash_expenses, expenses, expected_cash: Number(open.opening_cash) + cash_sales - cash_expenses, transaction_count: sales.length};
+    const materialMap = new Map(materials.map(material => [material.id, material]));
+    summary = {...open, cash_sales, qris_sales, cash_expenses, expenses: expenses.map(expense => ({...expense, material: materialMap.get(expense.material_id) || null})), expected_cash: Number(open.opening_cash) + cash_sales - cash_expenses, transaction_count: sales.length};
   }
   const recent = await db('cashier_shifts?status=eq.closed&select=*&order=closed_at.desc&limit=12');
   return {openShift: summary, recent};
@@ -473,20 +475,24 @@ async function shiftStatus() {
 async function shiftDetail(url) {
   const id = String(url.searchParams.get('id') || '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Shift tidak valid');
-  const [shiftRows, sales, expenses] = await Promise.all([
+  const [shiftRows, sales, expenses, materials] = await Promise.all([
     db(`cashier_shifts?id=eq.${encodeURIComponent(id)}&select=*&limit=1`),
     db(`sales?shift_id=eq.${encodeURIComponent(id)}&select=receipt_number,items,payment_method,payment_status,total,created_at&order=created_at.asc`),
-    db(`cash_expenses?shift_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`)
+    db(`cash_expenses?shift_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`),
+    db('materials?select=id,name,unit')
   ]);
   if (!shiftRows?.[0]) throw new Error('Shift tidak ditemukan');
-  return {shift: shiftRows[0], sales, expenses};
+  const materialMap = new Map(materials.map(material => [material.id, material]));
+  return {shift: shiftRows[0], sales, expenses: expenses.map(expense => ({...expense, material: materialMap.get(expense.material_id) || null}))};
 }
 
 async function addCashExpense(payload, session) {
   const shift_id = String(payload.shift_id || ''), category = String(payload.category || '').trim(), description = String(payload.description || '').trim();
   const amount = Math.round(Number(payload.amount));
-  if (!/^[0-9a-f-]{36}$/i.test(shift_id) || category.length < 2 || category.length > 80 || description.length < 3 || description.length > 300 || !Number.isFinite(amount) || amount <= 0) throw new Error('Data pengeluaran kas tidak valid');
-  return db('rpc/add_pos_cash_expense', {method: 'POST', body: JSON.stringify({p_shift_id: shift_id, p_category: category, p_description: description, p_amount: amount, p_created_by: session.name})});
+  const material_id = payload.material_id ? String(payload.material_id) : null;
+  const stock_quantity = material_id ? Number(payload.stock_quantity) : null;
+  if (!/^[0-9a-f-]{36}$/i.test(shift_id) || category.length < 2 || category.length > 80 || description.length < 3 || description.length > 300 || !Number.isFinite(amount) || amount <= 0 || (material_id && (!/^[0-9a-f-]{36}$/i.test(material_id) || !Number.isFinite(stock_quantity) || stock_quantity <= 0))) throw new Error('Data pengeluaran kas tidak valid');
+  return db('rpc/add_pos_cash_expense', {method: 'POST', body: JSON.stringify({p_shift_id: shift_id, p_category: category, p_description: description, p_amount: amount, p_created_by: session.name, p_material_id: material_id, p_stock_quantity: stock_quantity})});
 }
 
 async function openShift(payload, session) {
