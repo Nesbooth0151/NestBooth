@@ -72,6 +72,10 @@
       document.addEventListener('visibilitychange', resumeCheck);
       window.addEventListener('focus', resumeCheck);
       window.snap.pay(payment.token, {
+        // POS dipakai pada tablet/komputer kasir: pertahankan QR di layar
+        // kasir agar pelanggan memindainya dari ponsel, bukan deeplink yang
+        // membuka tab Simulator saat layar POS berukuran kecil.
+        uiMode: 'qr',
         onSuccess: () => check(true),
         onPending: () => { if (typeof show === 'function') show('QRIS menunggu pembayaran. Transaksi akan diproses otomatis setelah lunas.'); },
         onError: () => finish(new Error('Pembayaran QRIS tidak dapat diproses')),
