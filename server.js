@@ -71,7 +71,7 @@ function apiRoles(pathname, method) {
   if (pathname === '/api/midtrans/config' || pathname === '/api/midtrans/payment' || pathname === '/api/midtrans/status') return ['admin', 'kasir'];
   if (pathname === '/api/reports/sales' || pathname === '/api/reports/profit' || pathname === '/api/users') return ['admin'];
   if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
-  if (pathname === '/api/shifts') return ['admin', 'kasir'];
+  if (pathname === '/api/shifts' || pathname === '/api/shifts/detail') return ['admin', 'kasir'];
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
   if (pathname === '/api/cash-expenses') return ['admin', 'kasir'];
   return [];
@@ -470,6 +470,18 @@ async function shiftStatus() {
   return {openShift: summary, recent};
 }
 
+async function shiftDetail(url) {
+  const id = String(url.searchParams.get('id') || '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Shift tidak valid');
+  const [shiftRows, sales, expenses] = await Promise.all([
+    db(`cashier_shifts?id=eq.${encodeURIComponent(id)}&select=*&limit=1`),
+    db(`sales?shift_id=eq.${encodeURIComponent(id)}&select=receipt_number,items,payment_method,payment_status,total,created_at&order=created_at.asc`),
+    db(`cash_expenses?shift_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.asc`)
+  ]);
+  if (!shiftRows?.[0]) throw new Error('Shift tidak ditemukan');
+  return {shift: shiftRows[0], sales, expenses};
+}
+
 async function addCashExpense(payload, session) {
   const shift_id = String(payload.shift_id || ''), category = String(payload.category || '').trim(), description = String(payload.description || '').trim();
   const amount = Math.round(Number(payload.amount));
@@ -527,6 +539,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
     if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
     if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
+    if (url.pathname === '/api/shifts/detail' && req.method === 'GET') return send(res, 200, await shiftDetail(url));
     if (url.pathname === '/api/shifts/open' && req.method === 'POST') return send(res, 201, await openShift(await readBody(req), session));
     if (url.pathname === '/api/shifts/close' && req.method === 'POST') return send(res, 200, await closeShift(await readBody(req), session));
     if (url.pathname === '/api/cash-expenses' && req.method === 'POST') return send(res, 201, await addCashExpense(await readBody(req), session));
