@@ -39,7 +39,7 @@
       if (!material || !Number.isFinite(minimum) || minimum < 0) return show('Batas stok minimum tidak valid.');
       const button = document.getElementById('saveMinimum'); button.disabled = true; button.textContent = 'Menyimpan...';
       try {
-        const response = await fetch(`/api/materials?id=${encodeURIComponent(material.id)}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: material.name, unit: material.unit, stock: materialStock(material), min_stock: minimum})});
+        const response = await fetch(`/api/materials?id=${encodeURIComponent(material.id)}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: material.name, unit: material.unit, stock: materialStock(material), min_stock: minimum, unit_cost: Number(material.unit_cost || 0)})});
         const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'Batas stok tidak dapat disimpan');
         await window.nesboothCloudReload?.(); refreshAlerts(); show(`Batas minimum ${material.name} disimpan.`);
       } catch (error) { show(error.message || 'Batas stok tidak dapat disimpan.'); }

@@ -69,8 +69,8 @@ function apiRoles(pathname, method) {
   if (pathname === '/api/sales' && method === 'POST') return ['admin', 'kasir'];
   if (pathname === '/api/sales/manage') return ['admin'];
   if (pathname === '/api/midtrans/config' || pathname === '/api/midtrans/payment' || pathname === '/api/midtrans/status') return ['admin', 'kasir'];
-  if (pathname === '/api/reports/sales' || pathname === '/api/users') return ['admin'];
-  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
+  if (pathname === '/api/reports/sales' || pathname === '/api/reports/profit' || pathname === '/api/users') return ['admin'];
+  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
   if (pathname === '/api/shifts') return ['admin', 'kasir'];
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
   return [];
@@ -388,6 +388,13 @@ async function salesReport(from, to) {
   return db(`sales?select=*&created_at=gte.${encodeURIComponent(startTime)}&created_at=lt.${encodeURIComponent(endTime)}&order=created_at.desc&limit=5000`);
 }
 
+async function productProfitReport(from, to) {
+  const start = reportDate(from, 'Tanggal awal');
+  const end = reportDate(to, 'Tanggal akhir');
+  if (start > end) throw new Error('Rentang tanggal tidak valid');
+  return db('rpc/product_profit_report', {method: 'POST', body: JSON.stringify({p_from: start, p_to: end})});
+}
+
 async function saveSettings(payload) {
   const store_name = cleanName(payload.store_name, 'Nama toko');
   const tax_percent = 0;
@@ -414,8 +421,21 @@ async function saveMaterial(payload, id) {
   const min_stock = Number(payload.min_stock ?? 0);
   if (!['gram', 'ml', 'pcs'].includes(unit) || !Number.isFinite(stock) || stock < 0 || !Number.isFinite(min_stock) || min_stock < 0) throw new Error('Data bahan tidak valid');
   const body = {name, unit, stock, min_stock};
+  if (payload.unit_cost !== undefined && payload.unit_cost !== null) {
+    const unit_cost = Number(payload.unit_cost);
+    if (!Number.isFinite(unit_cost) || unit_cost < 0) throw new Error('Biaya bahan tidak valid');
+    body.unit_cost = unit_cost;
+  }
   if (!id) return (await db('materials', {method: 'POST', body: JSON.stringify(body)}))[0];
   return (await db(`materials?id=eq.${encodeURIComponent(id)}`, {method: 'PATCH', body: JSON.stringify(body)}))[0];
+}
+
+async function saveMaterialCost(payload) {
+  const id = String(payload.material_id || ''), unit_cost = Number(payload.unit_cost);
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !Number.isFinite(unit_cost) || unit_cost < 0) throw new Error('Biaya bahan tidak valid');
+  const rows = await db(`materials?id=eq.${encodeURIComponent(id)}`, {method: 'PATCH', body: JSON.stringify({unit_cost})});
+  if (!rows?.[0]) throw new Error('Bahan baku tidak ditemukan');
+  return rows[0];
 }
 
 async function restockMaterial(payload) {
@@ -481,6 +501,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/midtrans/status' && req.method === 'GET') return send(res, 200, await midtransPaymentStatus(url));
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') return send(res, 200, await bootstrap());
     if (url.pathname === '/api/reports/sales' && req.method === 'GET') return send(res, 200, {sales: await salesReport(url.searchParams.get('from'), url.searchParams.get('to'))});
+    if (url.pathname === '/api/reports/profit' && req.method === 'GET') return send(res, 200, {products: await productProfitReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
     if (url.pathname === '/api/sales/manage' && req.method === 'PUT') return send(res, 200, await manageSale(await readBody(req), session));
     if (url.pathname === '/api/settings' && req.method === 'PUT') return send(res, 200, await saveSettings(await readBody(req)));
@@ -490,6 +511,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials' && req.method === 'POST') return send(res, 201, await saveMaterial(await readBody(req)));
     if (url.pathname === '/api/materials' && req.method === 'PUT') return send(res, 200, await saveMaterial(await readBody(req), url.searchParams.get('id')));
     if (url.pathname === '/api/materials' && req.method === 'DELETE') return send(res, 200, await db(`materials?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'DELETE'}));
+    if (url.pathname === '/api/materials/cost' && req.method === 'PUT') return send(res, 200, await saveMaterialCost(await readBody(req)));
     if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
     if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
     if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
