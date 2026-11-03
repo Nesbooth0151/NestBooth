@@ -356,6 +356,33 @@ async function stockHistory(url) {
   return db('rpc/get_stock_history', {method: 'POST', body: JSON.stringify({p_limit: limit})});
 }
 
+async function shiftStatus() {
+  const open = (await db('cashier_shifts?status=eq.open&select=*&limit=1'))[0] || null;
+  let summary = null;
+  if (open) {
+    const sales = await db(`sales?shift_id=eq.${encodeURIComponent(open.id)}&payment_status=eq.paid&select=total,payment_method`);
+    const cash_sales = sales.filter(sale => sale.payment_method === 'Tunai').reduce((total, sale) => total + Number(sale.total || 0), 0);
+    const qris_sales = sales.filter(sale => sale.payment_method === 'QRIS').reduce((total, sale) => total + Number(sale.total || 0), 0);
+    summary = {...open, cash_sales, qris_sales, expected_cash: Number(open.opening_cash) + cash_sales, transaction_count: sales.length};
+  }
+  const recent = await db('cashier_shifts?status=eq.closed&select=*&order=closed_at.desc&limit=12');
+  return {openShift: summary, recent};
+}
+
+async function openShift(payload) {
+  const cashier = cleanName(payload.cashier, 'Nama kasir');
+  const opening_cash = Math.round(Number(payload.opening_cash));
+  if (!Number.isFinite(opening_cash) || opening_cash < 0) throw new Error('Kas awal tidak valid');
+  return db('rpc/open_pos_shift', {method: 'POST', body: JSON.stringify({p_cashier_name: cashier, p_opening_cash: opening_cash})});
+}
+
+async function closeShift(payload) {
+  const shift_id = String(payload.shift_id || ''), cashier = cleanName(payload.cashier, 'Nama kasir');
+  const counted_cash = Math.round(Number(payload.counted_cash)), notes = String(payload.notes || '').trim().slice(0, 300);
+  if (!/^[0-9a-f-]{36}$/i.test(shift_id) || !Number.isFinite(counted_cash) || counted_cash < 0) throw new Error('Data tutup shift tidak valid');
+  return db('rpc/close_pos_shift', {method: 'POST', body: JSON.stringify({p_shift_id: shift_id, p_closed_by: cashier, p_counted_cash: counted_cash, p_notes: notes})});
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
@@ -378,6 +405,9 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials' && req.method === 'DELETE') return send(res, 200, await db(`materials?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'DELETE'}));
     if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
     if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
+    if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
+    if (url.pathname === '/api/shifts/open' && req.method === 'POST') return send(res, 201, await openShift(await readBody(req)));
+    if (url.pathname === '/api/shifts/close' && req.method === 'POST') return send(res, 200, await closeShift(await readBody(req)));
     if (url.pathname === '/api/recipes' && req.method === 'POST') return send(res, 201, await saveRecipe(await readBody(req)));
     if (url.pathname === '/api/recipes' && req.method === 'DELETE') return send(res, 200, await deleteRecipe(url));
     if (url.pathname === '/api/queue' && req.method === 'GET') {

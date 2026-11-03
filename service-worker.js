@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kasirkita-pos-v46';
+const CACHE_NAME = 'kasirkita-pos-v47';
 const APP_FILES = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const APP_FILES = [
   './cloud-sync.js',
   './online-admin.js',
   './stock-alerts.js',
+  './shift-report.js',
   './online-report.js',
   './sale-management.js',
   './recipe-manager.js',

@@ -3,8 +3,8 @@
   if (!/\.onrender\.com$/i.test(location.hostname)) return;
   const storageKey = 'nesbooth-pos-session';
   const permissions = {
-    admin: ['dashboard', 'kasir', 'antrian', 'produk', 'transaksi', 'laporan', 'pengaturan'],
-    kasir: ['dashboard', 'kasir', 'antrian', 'transaksi'],
+    admin: ['dashboard', 'kasir', 'antrian', 'produk', 'transaksi', 'laporan', 'shift', 'pengaturan'],
+    kasir: ['dashboard', 'kasir', 'antrian', 'transaksi', 'shift'],
     bar: ['antrian']
   };
   const style = document.createElement('style');
