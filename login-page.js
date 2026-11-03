@@ -17,7 +17,11 @@
   const form = overlay.querySelector('form'), pinInput = overlay.querySelector('.pin-input'), error = overlay.querySelector('.login-error');
   function applyAccess(session) {
     const allowed = permissions[session.role] || [];
-    document.querySelectorAll('.nav button[data-page]').forEach(button => { button.style.display = allowed.includes(button.dataset.page) ? '' : 'none'; });
+    // Desktop memakai .nav, sedangkan layar kecil memakai .mobile-nav yang
+    // dibuat oleh mobile-navigation.js. Keduanya harus mengikuti peran yang sama.
+    document.querySelectorAll('.nav button[data-page], .mobile-nav button[data-page]').forEach(button => {
+      button.style.display = allowed.includes(button.dataset.page) ? '' : 'none';
+    });
     const active = document.querySelector('.page.active');
     if (active && !allowed.includes(active.id)) document.querySelector(`.nav button[data-page="${allowed[0]}"]`)?.click();
     overlay.remove(); document.body.classList.remove('pos-locked');
