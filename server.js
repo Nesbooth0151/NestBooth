@@ -342,6 +342,20 @@ async function saveMaterial(payload, id) {
   return (await db(`materials?id=eq.${encodeURIComponent(id)}`, {method: 'PATCH', body: JSON.stringify(body)}))[0];
 }
 
+async function restockMaterial(payload) {
+  const material_id = String(payload.material_id || '');
+  const quantity = Number(payload.quantity);
+  const note = String(payload.note || '').trim().slice(0, 160);
+  if (!/^[0-9a-f-]{36}$/i.test(material_id) || !Number.isFinite(quantity) || quantity <= 0) throw new Error('Data restok tidak valid');
+  const rows = await db('rpc/restock_material', {method: 'POST', body: JSON.stringify({p_material_id: material_id, p_quantity: quantity, p_note: note})});
+  return rows;
+}
+
+async function stockHistory(url) {
+  const limit = Math.min(300, Math.max(1, Number(url.searchParams.get('limit')) || 100));
+  return db('rpc/get_stock_history', {method: 'POST', body: JSON.stringify({p_limit: limit})});
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
@@ -362,6 +376,8 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials' && req.method === 'POST') return send(res, 201, await saveMaterial(await readBody(req)));
     if (url.pathname === '/api/materials' && req.method === 'PUT') return send(res, 200, await saveMaterial(await readBody(req), url.searchParams.get('id')));
     if (url.pathname === '/api/materials' && req.method === 'DELETE') return send(res, 200, await db(`materials?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'DELETE'}));
+    if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
+    if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
     if (url.pathname === '/api/recipes' && req.method === 'POST') return send(res, 201, await saveRecipe(await readBody(req)));
     if (url.pathname === '/api/recipes' && req.method === 'DELETE') return send(res, 200, await deleteRecipe(url));
     if (url.pathname === '/api/queue' && req.method === 'GET') {

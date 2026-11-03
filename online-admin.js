@@ -49,9 +49,7 @@
       if (!material) throw new Error('Pilih bahan baku terlebih dahulu');
       const added = Number(stockQty.value);
       if (!Number.isFinite(added) || added <= 0) throw new Error('Jumlah stok tidak valid');
-      await request(`/api/materials?id=${encodeURIComponent(material.id)}`, {method: 'PUT', body: JSON.stringify({
-        name: material.name, unit: material.unit, stock: Number(material.stock) + added, min_stock: Number(material.min_stock || 0)
-      })});
+      await request('/api/materials/restock', {method: 'POST', body: JSON.stringify({material_id: material.id, quantity: added, note: 'Restok dari POS'})});
       await reload(); show(`${material.name} ditambahkan ke stok pusat.`);
     });
   }, true);
