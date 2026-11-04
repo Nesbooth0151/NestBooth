@@ -61,8 +61,11 @@ const recipes=[
 try{const savedMaterials=JSON.parse(localStorage.getItem('kasirkita-materials'));if(Array.isArray(savedMaterials)&&savedMaterials.length)materials=savedMaterials}catch(e){}
 try{const savedMenu=JSON.parse(localStorage.getItem('kasirkita-menu'));if(Array.isArray(savedMenu)&&savedMenu.length){products.splice(0,products.length,...savedMenu)}}catch(e){}
 function refreshStockAdmin(){
+  const selectedMaterialName=materials[Number(stockProduct.value)]?.name || '';
   productTable.innerHTML=materials.map(m=>`<tr><td><b>${m.name}</b></td><td>${m.unit}</td><td>${m.stock.toLocaleString('id-ID')} ${m.unit}</td><td>${m.min.toLocaleString('id-ID')} ${m.unit}</td><td><span class="badge ${m.stock<=m.min?'wait':'ready'}">${m.stock<=m.min?'Menipis':'Tersedia'}</span></td></tr>`).join('');
   stockProduct.innerHTML=materials.map((m,i)=>`<option value="${i}">${m.name} — ${m.stock.toLocaleString('id-ID')} ${m.unit}</option>`).join('');
+  const selectedIndex=materials.findIndex(material=>material.name===selectedMaterialName);
+  stockProduct.value=selectedIndex>=0?selectedIndex:0;
 }
 stockForm.addEventListener('submit',event=>{
   event.preventDefault();
