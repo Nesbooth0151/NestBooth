@@ -123,3 +123,18 @@ join public.products product on product.name = recipe.product_name
 join public.materials material on lower(material.name) = lower(recipe.material_name)
 on conflict (product_id, material_id, variant)
 do update set amount = excluded.amount;
+
+-- Verifikasi: hasil query ini harus menampilkan setiap menu, varian, dan
+-- jumlah bahan resepnya. Jika hasilnya kosong, kirimkan hasil SQL Editor.
+select
+  product.name as menu,
+  coalesce(nullif(recipe.variant, ''), 'Standar') as varian,
+  count(*) as jumlah_bahan
+from public.product_recipes recipe
+join public.products product on product.id = recipe.product_id
+where product.name in (
+  'Nestlé Blackcurrant', 'Nestlé Lemonade', 'Nestea Lemon Tea',
+  'NESLO', 'Nescafé Caffe Latte', 'Nestlé Milo'
+)
+group by product.name, recipe.variant
+order by product.name, recipe.variant;
