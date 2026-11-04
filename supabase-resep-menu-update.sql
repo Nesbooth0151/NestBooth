@@ -119,7 +119,8 @@ from (values
   ('Nestlé Milo', 'Air', '', 150),
   ('Nestlé Milo', 'Es', '', 160)
 ) as recipe(product_name, material_name, variant, amount)
-join public.products product on product.name = recipe.product_name
+-- Hanya hubungkan ke menu aktif yang tampil pada kasir.
+join public.products product on product.name = recipe.product_name and product.is_active = true
 join public.materials material on lower(material.name) = lower(recipe.material_name)
 on conflict (product_id, material_id, variant)
 do update set amount = excluded.amount;
@@ -132,7 +133,8 @@ select
   count(*) as jumlah_bahan
 from public.product_recipes recipe
 join public.products product on product.id = recipe.product_id
-where product.name in (
+where product.is_active = true
+  and product.name in (
   'Nestlé Blackcurrant', 'Nestlé Lemonade', 'Nestea Lemon Tea',
   'NESLO', 'Nescafé Caffe Latte', 'Nestlé Milo'
 )
