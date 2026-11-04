@@ -65,7 +65,7 @@ function requireRole(req, roles) {
 
 function apiRoles(pathname, method) {
   if (pathname === '/api/bootstrap' && method === 'GET') return ['admin', 'kasir'];
-  if (pathname === '/api/queue') return ['admin', 'kasir', 'bar'];
+  if (pathname === '/api/queue') return method === 'GET' ? [] : ['admin', 'kasir', 'bar'];
   if (pathname === '/api/sales' && method === 'POST') return ['admin', 'kasir'];
   if (pathname === '/api/sales/manage') return ['admin'];
   if (pathname === '/api/midtrans/config' || pathname === '/api/midtrans/payment' || pathname === '/api/midtrans/status') return ['admin', 'kasir'];
@@ -75,6 +75,13 @@ function apiRoles(pathname, method) {
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
   if (pathname === '/api/cash-expenses') return ['admin', 'kasir'];
   return [];
+}
+
+// Layar TV tidak menjalankan login POS. Ia hanya menerima nomor/status antrean
+// yang memang ditujukan untuk dilihat pelanggan; perubahan antrean tetap perlu login.
+function isPublicApi(pathname, method) {
+  return (pathname === '/api/queue' && method === 'GET') ||
+    (pathname === '/api/midtrans/notification' && method === 'POST');
 }
 
 function readBody(req) {
@@ -524,8 +531,9 @@ const server = http.createServer(async (req, res) => {
     // Midtrans adalah satu-satunya pihak luar yang boleh mengirim webhook;
     // tanda tangannya diverifikasi di handleMidtransNotification().
     const roles = apiRoles(url.pathname, req.method);
+    const publicApi = isPublicApi(url.pathname, req.method);
     const session = roles.length ? requireRole(req, roles) : null;
-    if (url.pathname.startsWith('/api/') && !roles.length && url.pathname !== '/api/midtrans/notification') throw new HttpError(404, 'API tidak ditemukan');
+    if (url.pathname.startsWith('/api/') && !roles.length && !publicApi) throw new HttpError(404, 'API tidak ditemukan');
     if (url.pathname === '/api/users' && req.method === 'GET') return send(res, 200, await listPosUsers());
     if (url.pathname === '/api/users' && req.method === 'POST') return send(res, 200, await managePosUser(await readBody(req), session));
     if (url.pathname === '/api/midtrans/config' && req.method === 'GET') return send(res, 200, {configured: Boolean(midtransServerKey && midtransClientKey), clientKey: midtransClientKey || null, snapUrl: `${midtransBase}/snap/snap.js`});
