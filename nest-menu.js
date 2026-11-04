@@ -1,16 +1,16 @@
 (() => {
-  const menuVersion = 'nest-menu-2026-10-29';
+  const menuVersion = 'nest-menu-2026-11-05-latte-prices';
   const nestMenu = [
     ['Nestlé Blackcurrant', 'Minuman', 5000, 100, '🥤'],
     ['Nestlé Milo', 'Minuman', 11000, 100, '🥤'],
     ['Nestea Lemon Tea', 'Minuman', 5000, 100, '🍋'],
     ['Nestlé Lemonade', 'Minuman', 5000, 100, '🍋'],
-    ['Nescafé Caffe Latte', 'Minuman', 9000, 100, '☕'],
+    ['Nescafé Caffe Latte', 'Minuman', 10000, 100, '☕'],
     ['Nescafé Ice Roast', 'Minuman', 5000, 100, '🧊'],
     ['NESLO', 'Minuman', 13000, 100, '🥤']
   ];
   const options = {
-    'Nescafé Caffe Latte': [{label: 'Normal', price: 9000}, {label: 'Strong', price: 11000}],
+    'Nescafé Caffe Latte': [{label: 'Normal', price: 10000}, {label: 'Strong', price: 12000}],
     'Nescafé Ice Roast': [
       {label: '1 Shot Dingin', price: 5000}, {label: '2 Shot Dingin', price: 7000}, {label: '3 Shot Dingin', price: 9000},
       {label: '1 Shot Panas', price: 5000}, {label: '2 Shot Panas', price: 7000}, {label: '3 Shot Panas', price: 9000}
