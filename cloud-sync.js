@@ -85,6 +85,12 @@
     });
   };
   async function loadCloudData() {
+    // Bar hanya membutuhkan antrean. Jangan memanggil bootstrap karena endpoint
+    // tersebut memuat stok dan penjualan yang memang tidak boleh dibuka untuk Bar.
+    try {
+      const session = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null');
+      if (session?.role === 'bar') return;
+    } catch { /* sesi yang rusak akan ditangani halaman login */ }
     try {
       const data = await api('/api/bootstrap');
       if (!data.products?.length) return;

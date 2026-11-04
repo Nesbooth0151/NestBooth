@@ -121,10 +121,21 @@ async function pushQueueToDisplay(){
 }
 renderQueue=function(){originalRenderQueue();pushQueueToDisplay()};
 async function loadSharedQueue(){
-  if(location.protocol !== 'http:') return;
-  try{const r=await fetch('/api/queue');const saved=await r.json();if(saved.queue?.length){queue=saved.queue;current=saved.current||0;originalRenderQueue()}}catch(e){}
+  // Endpoint antrean aman ditampilkan untuk layar Bar/TV dan tetap dapat
+  // digunakan dari Render yang selalu memakai HTTPS.
+  try{
+    const r=await fetch('/api/queue',{cache:'no-store'});
+    if(!r.ok) throw new Error('Antrean belum dapat dimuat');
+    const saved=await r.json();
+    queue.splice(0,queue.length,...(Array.isArray(saved.queue)?saved.queue:[]));
+    current=Math.max(0,Number(saved.current)||0);
+    originalRenderQueue();
+  }catch(e){console.warn('Antrean online belum dapat dimuat',e)}
 }
 loadSharedQueue();
+// Perangkat Bar tidak memuat bootstrap POS agar tidak menerima data stok atau
+// penjualan. Karena itu ia memperbarui antrean melalui endpoint khusus ini.
+setInterval(loadSharedQueue,5000);
 </script>
 <script src="login-page.js"></script>
 <script src="receipt-enhancer.js"></script>
