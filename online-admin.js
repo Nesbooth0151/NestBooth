@@ -61,8 +61,9 @@
     if (text === 'Simpan Bahan Baru') {
       event.preventDefault(); event.stopImmediatePropagation();
       return busy(button, async () => {
+        const minimumByUnit = {ml: 2000, gram: 300, pcs: 50};
         await request('/api/materials', {method: 'POST', body: JSON.stringify({
-          name: newName.value, unit: newUnit.value, stock: Number(newStock.value), min_stock: 0
+          name: newName.value, unit: newUnit.value, stock: Number(newStock.value), min_stock: minimumByUnit[newUnit.value] ?? 0
         })});
         newName.value = ''; newStock.value = '0'; await reload(); show('Bahan baru tersimpan untuk semua perangkat.');
       });

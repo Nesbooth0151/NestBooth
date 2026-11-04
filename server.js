@@ -430,7 +430,10 @@ async function saveMaterial(payload, id) {
   const name = cleanName(payload.name, 'Nama bahan');
   const unit = cleanName(payload.unit, 'Satuan').toLowerCase();
   const stock = Number(payload.stock);
-  const min_stock = Number(payload.min_stock ?? 0);
+  // Bahan baru otomatis memiliki batas aman berdasarkan satuan. Admin tetap
+  // dapat mengubah angka tersebut per bahan dari halaman Peringatan Stok.
+  const unitMinimum = {ml: 2000, gram: 300, pcs: 50};
+  const min_stock = Number(payload.min_stock ?? unitMinimum[unit] ?? 0);
   if (!['gram', 'ml', 'pcs'].includes(unit) || !Number.isFinite(stock) || stock < 0 || !Number.isFinite(min_stock) || min_stock < 0) throw new Error('Data bahan tidak valid');
   const body = {name, unit, stock, min_stock};
   if (payload.unit_cost !== undefined && payload.unit_cost !== null) {
