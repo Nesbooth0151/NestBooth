@@ -70,7 +70,7 @@ function apiRoles(pathname, method) {
   if (pathname === '/api/sales/manage') return ['admin'];
   if (pathname === '/api/midtrans/config' || pathname === '/api/midtrans/payment' || pathname === '/api/midtrans/status') return ['admin', 'kasir'];
   if (pathname === '/api/reports/sales' || pathname === '/api/reports/profit' || pathname === '/api/users') return ['admin'];
-  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
+  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/restock' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
   if (pathname === '/api/shifts' || pathname === '/api/shifts/detail') return ['admin', 'kasir'];
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
   if (pathname === '/api/cash-expenses') return ['admin', 'kasir'];
