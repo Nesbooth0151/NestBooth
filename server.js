@@ -65,6 +65,7 @@ function requireRole(req, roles) {
 
 function apiRoles(pathname, method) {
   if (pathname === '/api/bootstrap' && method === 'GET') return ['admin', 'kasir'];
+  if (pathname === '/api/operational-alerts' && method === 'GET') return ['admin', 'kasir'];
   if (pathname === '/api/queue') return method === 'GET' ? [] : ['admin', 'kasir', 'bar'];
   if (pathname === '/api/sales' && method === 'POST') return ['admin', 'kasir'];
   if (pathname === '/api/sales/manage') return ['admin'];
@@ -482,6 +483,43 @@ async function shiftStatus() {
   return {openShift: summary, recent};
 }
 
+// Ringkasan masalah yang perlu segera ditangani di operasional toko.
+// Endpoint ini hanya mengembalikan data minimum agar tidak membuka seluruh data stok
+// atau detail pembayaran kepada perangkat kasir.
+async function operationalAlerts() {
+  const [materials, openShifts, pendingPayments] = await Promise.all([
+    db('materials?select=id,name,stock,unit,min_stock,is_active&order=name.asc'),
+    db('cashier_shifts?status=eq.open&select=id,cashier_name,opened_at,opening_cash&order=opened_at.asc'),
+    db('payment_orders?status=eq.pending&select=id,order_id,gross_amount,payment_method,created_at,updated_at&order=created_at.asc&limit=30')
+  ]);
+
+  const outOfStock = materials
+    .filter(material => material.is_active !== false && Number(material.stock || 0) <= 0)
+    .map(material => ({id: material.id, name: material.name, unit: material.unit || ''}));
+  const pendingQris = pendingPayments
+    .filter(payment => String(payment.payment_method || 'QRIS').toUpperCase() === 'QRIS')
+    .map(payment => ({
+      id: payment.id,
+      order_id: payment.order_id,
+      gross_amount: Number(payment.gross_amount || 0),
+      created_at: payment.created_at,
+      updated_at: payment.updated_at
+    }));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    outOfStock,
+    openShifts: openShifts.map(shift => ({
+      id: shift.id,
+      cashier_name: shift.cashier_name,
+      opened_at: shift.opened_at,
+      opening_cash: Number(shift.opening_cash || 0)
+    })),
+    pendingQris,
+    total: outOfStock.length + openShifts.length + pendingQris.length
+  };
+}
+
 async function shiftDetail(url) {
   const id = String(url.searchParams.get('id') || '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Shift tidak valid');
@@ -541,6 +579,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/midtrans/notification' && req.method === 'POST') return send(res, 200, await handleMidtransNotification(await readBody(req)));
     if (url.pathname === '/api/midtrans/status' && req.method === 'GET') return send(res, 200, await midtransPaymentStatus(url));
     if (url.pathname === '/api/bootstrap' && req.method === 'GET') return send(res, 200, await bootstrap());
+    if (url.pathname === '/api/operational-alerts' && req.method === 'GET') return send(res, 200, await operationalAlerts());
     if (url.pathname === '/api/reports/sales' && req.method === 'GET') return send(res, 200, {sales: await salesReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/reports/profit' && req.method === 'GET') return send(res, 200, {products: await productProfitReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
