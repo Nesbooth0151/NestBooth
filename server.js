@@ -144,7 +144,7 @@ async function managePosUser(payload, session) {
 }
 
 async function bootstrap() {
-  const [settings, products, materials, recipes, queues, sales] = await Promise.all([
+  const [settings, products, materialRows, recipes, queues, sales] = await Promise.all([
     db('store_settings?select=*&id=eq.1'),
     db('products?select=*&is_active=eq.true&order=created_at.asc'),
     db('materials?select=*&order=name.asc'),
@@ -152,6 +152,9 @@ async function bootstrap() {
     db('queue_items?select=*&status=neq.Selesai&order=created_at.asc'),
     db('sales?select=*&order=created_at.desc&limit=500')
   ]);
+  // Bahan yang dinonaktifkan tetap tersimpan untuk menjaga riwayat transaksi,
+  // tetapi tidak lagi muncul pada stok maupun pemilihan resep yang aktif.
+  const materials = materialRows.filter(material => material.is_active !== false);
   return {settings: settings[0] || null, products, materials, recipes, queues, sales};
 }
 
