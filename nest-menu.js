@@ -26,11 +26,11 @@
     ]
   };
 
-  appSettings.storeName = 'NesBooth';
+  appSettings.storeName = 'NESBOOTH';
   localStorage.setItem('kasirkita-settings', JSON.stringify(appSettings));
-  document.querySelector('.brand').childNodes[1].textContent = ' NesBooth';
+  document.querySelector('.brand').childNodes[1].textContent = ' NESBOOTH';
   const storeNameInput = document.getElementById('settingStoreName');
-  if (storeNameInput) storeNameInput.value = 'NesBooth';
+  if (storeNameInput) storeNameInput.value = 'NESBOOTH';
 
   if (localStorage.getItem('nestbooth-menu-version') !== menuVersion) {
     products.splice(0, products.length, ...nestMenu.map(item => [...item]));

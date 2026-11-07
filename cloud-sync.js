@@ -111,7 +111,7 @@
       recipes.splice(0, recipes.length, ...data.products.map(product => recipeByProduct.get(product.id) || {}));
       if (data.settings) {
         appSettings = {storeName: data.settings.store_name, taxPercent: 0, queuePrefix: data.settings.queue_prefix};
-        document.querySelector('.brand').childNodes[1].textContent = ' ' + appSettings.storeName;
+        document.querySelector('.brand').childNodes[1].textContent = ' ' + String(appSettings.storeName).toUpperCase();
       }
       queue.splice(0, queue.length, ...data.queues.map(item => ({id: item.id, n: item.queue_number, name: '', items: item.item_count + ' item', status: item.status})));
       current = Math.max(0, queue.findIndex(item => item.status === 'Diproses'));

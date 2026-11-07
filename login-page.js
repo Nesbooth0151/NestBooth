@@ -31,7 +31,7 @@
     });
   };
   const overlay = document.createElement('div'); overlay.className = 'pos-login';
-  overlay.innerHTML = `<form class="pos-login-card"><div class="pos-login-brand"><b>N</b>NesBooth</div><p>Masuk untuk menggunakan sistem POS.</p><div class="role-picks"><button class="role-pick active" type="button" data-role="admin">Admin</button><button class="role-pick" type="button" data-role="kasir">Kasir</button><button class="role-pick" type="button" data-role="bar">Bar</button></div><label style="font-weight:700;font-size:13px">PIN</label><input class="pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" type="password" placeholder="••••••" required><button class="login-submit" type="submit">Masuk ke POS</button><div class="login-error"></div></form>`;
+  overlay.innerHTML = `<form class="pos-login-card"><div class="pos-login-brand"><b>N</b>NESBOOTH</div><p>Masuk untuk menggunakan sistem POS.</p><div class="role-picks"><button class="role-pick active" type="button" data-role="admin">Admin</button><button class="role-pick" type="button" data-role="kasir">Kasir</button><button class="role-pick" type="button" data-role="bar">Bar</button></div><label style="font-weight:700;font-size:13px">PIN</label><input class="pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="current-password" type="password" placeholder="••••••" required><button class="login-submit" type="submit">Masuk ke POS</button><div class="login-error"></div></form>`;
   document.body.appendChild(overlay); document.body.classList.add('pos-locked');
   let selectedRole = 'admin';
   const form = overlay.querySelector('form'), pinInput = overlay.querySelector('.pin-input'), error = overlay.querySelector('.login-error');
