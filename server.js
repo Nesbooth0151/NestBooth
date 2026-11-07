@@ -14,6 +14,8 @@ const midtransClientKey = process.env.MIDTRANS_CLIENT_KEY || '';
 const midtransProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 const midtransBase = midtransProduction ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
 const midtransApiBase = midtransProduction ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
+// Kunci khusus untuk layar TV. Tidak pernah dikirim ke pengguna yang belum login.
+const tvDisplayKey = process.env.TV_DISPLAY_KEY || '';
 // Sesi disimpan di server, bukan dipercaya dari role di browser.
 // Server Render dapat direstart; pada kondisi itu pengguna cukup login kembali.
 const posSessions = new Map();
@@ -67,6 +69,7 @@ function apiRoles(pathname, method) {
   if (pathname === '/api/bootstrap' && method === 'GET') return ['admin', 'kasir'];
   if (pathname === '/api/operational-alerts' && method === 'GET') return ['admin', 'kasir'];
   if (pathname === '/api/queue') return method === 'GET' ? [] : ['admin', 'kasir', 'bar'];
+  if (pathname === '/api/tv-link' && method === 'GET') return ['admin', 'kasir', 'bar'];
   if (pathname === '/api/sales' && method === 'POST') return ['admin', 'kasir'];
   if (pathname === '/api/sales/manage') return ['admin'];
   if (pathname === '/api/midtrans/config' || pathname === '/api/midtrans/payment' || pathname === '/api/midtrans/status') return ['admin', 'kasir'];
@@ -83,6 +86,12 @@ function apiRoles(pathname, method) {
 function isPublicApi(pathname, method) {
   return (pathname === '/api/queue' && method === 'GET') ||
     (pathname === '/api/midtrans/notification' && method === 'POST');
+}
+
+function isTvDisplayKeyValid(value) {
+  const supplied = String(value || '');
+  return Boolean(tvDisplayKey) && supplied.length === tvDisplayKey.length &&
+    crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(tvDisplayKey));
 }
 
 function readBody(req) {
@@ -604,7 +613,20 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/cash-expenses' && req.method === 'POST') return send(res, 201, await addCashExpense(await readBody(req), session));
     if (url.pathname === '/api/recipes' && req.method === 'POST') return send(res, 201, await saveRecipe(await readBody(req)));
     if (url.pathname === '/api/recipes' && req.method === 'DELETE') return send(res, 200, await deleteRecipe(url));
+    if (url.pathname === '/api/tv-link' && req.method === 'GET') {
+      if (!tvDisplayKey) throw new HttpError(503, 'Layar TV belum dikonfigurasi. Tambahkan TV_DISPLAY_KEY di Render.');
+      return send(res, 200, {url: `/tv-display.html?tv_key=${encodeURIComponent(tvDisplayKey)}`});
+    }
     if (url.pathname === '/api/queue' && req.method === 'GET') {
+      const providedTvKey = url.searchParams.get('tv_key');
+      if (providedTvKey) {
+        if (!tvDisplayKey) throw new HttpError(503, 'Layar TV belum dikonfigurasi');
+        if (!isTvDisplayKeyValid(providedTvKey)) throw new HttpError(403, 'Kunci layar TV tidak valid');
+      } else {
+        // POS biasa harus memiliki sesi login. Hanya TV yang mendapat akses
+        // baca terbatas melalui link berkunci di atas.
+        requireRole(req, ['admin', 'kasir', 'bar']);
+      }
       if (!supabaseUrl || !supabaseKey) return send(res, 200, {queue: [], current: 0});
       const items = await db('queue_items?select=*&status=neq.Selesai&order=created_at.asc');
       const queue = items.map(item => ({id: item.id, n: item.queue_number, name: '', items: `${item.item_count} item`, status: item.status}));
