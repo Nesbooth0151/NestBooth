@@ -95,12 +95,8 @@
       show('Pengeluaran kas berhasil dicatat.'); await load();
     } catch (error) { show(error.message || 'Pengeluaran kas tidak dapat disimpan.'); button.disabled = false; button.textContent = 'Catat Pengeluaran'; }
   }
-  // Jangan menimpa formulir yang sedang diisi kasir. Data shift tetap
-  // diperbarui berkala, tetapi pembaruan ditunda selama kursor berada pada
-  // salah satu kolom formulir di halaman ini.
-  const refreshIfIdle = () => {
-    if (root.contains(document.activeElement)) return;
-    load();
-  };
-  load(); setInterval(refreshIfIdle, 30000);
+  // Halaman Shift tidak memakai pembaruan otomatis. Formulir kas awal,
+  // pengeluaran, dan tutup shift harus tetap utuh sampai petugas menekan
+  // tombol simpan sendiri.
+  load();
 })();
