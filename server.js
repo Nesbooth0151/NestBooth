@@ -573,8 +573,11 @@ async function addCashExpense(payload, session) {
 }
 
 async function openShift(payload, session) {
-  const cashier = session.name;
+  // Nama pada formulir shift boleh disesuaikan dengan petugas yang benar-benar
+  // memegang kas hari itu; akun login tetap diperlukan untuk otorisasi API.
+  const cashier = String(payload.cashier || session.name || '').trim().slice(0, 100);
   const opening_cash = Math.round(Number(payload.opening_cash));
+  if (cashier.length < 2) throw new Error('Nama kasir minimal 2 karakter');
   if (!Number.isFinite(opening_cash) || opening_cash < 0) throw new Error('Kas awal tidak valid');
   return db('rpc/open_pos_shift', {method: 'POST', body: JSON.stringify({p_cashier_name: cashier, p_opening_cash: opening_cash})});
 }
