@@ -77,7 +77,7 @@ function apiRoles(pathname, method) {
   // manajemen pengguna tetap khusus Admin.
   if (pathname === '/api/reports/sales') return ['admin', 'kasir'];
   if (pathname === '/api/reports/profit' || pathname === '/api/users') return ['admin'];
-  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/restock' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
+  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/restock' || pathname === '/api/materials/reset-stock' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
   if (pathname === '/api/shifts' || pathname === '/api/shifts/detail') return ['admin', 'kasir'];
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
   if (pathname === '/api/cash-expenses') return ['admin', 'kasir'];
@@ -474,6 +474,15 @@ async function restockMaterial(payload) {
   return rows;
 }
 
+// Reset persediaan dipisahkan dari restok agar hanya Admin yang dapat
+// menjalankannya dengan satu permintaan pusat untuk semua perangkat.
+async function resetAllMaterialStock() {
+  const rows = await db('materials?stock=gte.0&select=id,name', {
+    method: 'PATCH', body: JSON.stringify({stock: 0})
+  });
+  return {updated: Array.isArray(rows) ? rows.length : 0};
+}
+
 async function stockHistory(url) {
   const limit = Math.min(300, Math.max(1, Number(url.searchParams.get('limit')) || 100));
   return db('rpc/get_stock_history', {method: 'POST', body: JSON.stringify({p_limit: limit})});
@@ -608,6 +617,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials' && req.method === 'DELETE') return send(res, 200, await db(`materials?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'DELETE'}));
     if (url.pathname === '/api/materials/cost' && req.method === 'PUT') return send(res, 200, await saveMaterialCost(await readBody(req)));
     if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
+    if (url.pathname === '/api/materials/reset-stock' && req.method === 'POST') return send(res, 200, await resetAllMaterialStock());
     if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
     if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
     if (url.pathname === '/api/shifts/detail' && req.method === 'GET') return send(res, 200, await shiftDetail(url));
