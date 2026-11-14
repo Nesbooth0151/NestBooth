@@ -3,7 +3,8 @@
     .receipt-sheet{position:fixed;inset:0;z-index:99;background:#102a4388;display:grid;place-items:center;padding:20px}
     .receipt-paper{width:min(320px,100%);background:#fff;border-radius:4px;padding:18px;color:#111;box-shadow:0 18px 48px #0005;font:13px "Courier New",monospace}.receipt-paper h2{margin:0;text-align:center;font-size:23px;letter-spacing:1px}.receipt-paper .sub{text-align:center;color:#222;font-size:11px;line-height:1.45;margin:5px 0 14px}
     .receipt-meta{border-top:1px dashed #333;border-bottom:1px dashed #333;padding:10px 0;margin:12px 0;line-height:1.75}.receipt-lines{border-bottom:1px dashed #333;padding:9px 0}.receipt-line{display:flex;justify-content:space-between;gap:10px;padding:4px 0}.receipt-line small{color:#222}
-    .receipt-total{font-size:17px;font-weight:800;margin:14px 0;display:flex;justify-content:space-between}.receipt-summary{break-inside:avoid;page-break-inside:avoid}.receipt-actions{display:flex;gap:9px}.receipt-actions button{flex:1;border:0;border-radius:8px;padding:11px;font-weight:700;cursor:pointer}.print-receipt{background:#1677ff;color:#fff}.close-receipt{background:#edf2f7;color:#334e68}
+    .receipt-total{font-size:17px;font-weight:800;margin:14px 0;display:flex;justify-content:space-between}.receipt-summary{break-inside:avoid;page-break-inside:avoid}.receipt-actions{display:flex;gap:9px;flex-wrap:wrap}.receipt-actions button{flex:1;border:0;border-radius:8px;padding:11px;font-weight:700;cursor:pointer}.print-receipt{background:#1677ff;color:#fff}.close-receipt{background:#edf2f7;color:#334e68}.tablet-receipt{display:none;background:#14b87a;color:#fff}.tablet-print-note{display:none;margin:9px 0 0;color:#52697e;font:11px system-ui,sans-serif;line-height:1.45;text-align:center}
+    @media (max-width:900px),(pointer:coarse){.tablet-receipt{display:block;flex-basis:100%}.tablet-print-note{display:block}.receipt-actions{display:grid;grid-template-columns:1fr 1fr}.tablet-receipt{grid-column:1/-1}}
     @page{margin:0}
     .receipt-tail{display:none}
     @media print{html,body{width:58mm!important;margin:0!important;padding:0!important;background:#fff!important}body>*:not(#receiptToPrint){display:none!important}#receiptToPrint{position:static!important;display:block!important;width:58mm!important;background:#fff!important;padding:0!important;margin:0!important}.receipt-paper{box-sizing:border-box!important;box-shadow:none!important;width:48mm!important;min-height:0!important;margin:0 auto!important;padding:3mm 0!important;border-radius:0!important;font:11px "Courier New",monospace!important;color:#000!important;break-inside:avoid!important;page-break-inside:avoid!important}.receipt-paper h2{font-size:17px!important}.receipt-paper .sub{font-size:10px!important;margin:3px 0 8px!important}.receipt-meta{padding:5px 0!important;margin:6px 0!important;line-height:1.5!important}.receipt-lines{padding:5px 0!important}.receipt-line{display:block!important;padding:2px 0!important}.receipt-line>span{display:block!important;min-width:0!important;overflow-wrap:anywhere!important}.receipt-line>b{display:block!important;margin-top:1px!important;text-align:right!important;white-space:nowrap!important}.receipt-summary{break-inside:avoid!important;page-break-inside:avoid!important}.receipt-total{font-size:14px!important;margin:8px 0!important}.receipt-tail{display:block!important;height:12mm!important}.receipt-actions,.printer-note{display:none!important}}
@@ -12,6 +13,36 @@
   document.querySelectorAll('.method[data-method="Kartu"],.method[data-method="E-Wallet"]').forEach(button => button.remove());
   const queueNameStyle = document.createElement('style'); queueNameStyle.textContent = '.queue-details b,#nowName{display:none!important}'; document.head.appendChild(queueNameStyle);
   const rupiah = value => 'Rp' + Number(value || 0).toLocaleString('id-ID');
+  const receiptText = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E\n]/g, '');
+  const receiptRow = (left, right = '', width = 32) => {
+    const cleanLeft = receiptText(left), cleanRight = receiptText(right);
+    if (!cleanRight) return cleanLeft.slice(0, width);
+    const space = Math.max(1, width - cleanLeft.length - cleanRight.length);
+    return cleanLeft.slice(0, Math.max(1, width - cleanRight.length - 1)) + ' '.repeat(space) + cleanRight;
+  };
+  const receiptCenter = (value, width = 32) => { const clean = receiptText(value).slice(0, width); return ' '.repeat(Math.max(0, Math.floor((width - clean.length) / 2))) + clean; };
+  function tabletReceiptText(data) {
+    const divider = '-'.repeat(32);
+    const items = data.items.flatMap(item => {
+      const parts = String(item.name).split(' — ');
+      return [receiptRow(`${item.qty} ${parts.shift()}`, rupiah(item.price * item.qty)), ...parts.flatMap(part => part.split(' • ').map(option => `  ${receiptText(option)}`))];
+    });
+    return [receiptCenter('NESBOOTH'), receiptCenter('STRUK PEMBAYARAN'), receiptCenter('Jl. Karya No.A3, Karang Berombak'), receiptCenter('Medan, Sumatera Utara 20117'), divider, `ANTRIAN : ${receiptText(data.queueNumber)}`, `RCPT#    : ${receiptText(data.receiptNumber)}`, `TANGGAL  : ${receiptText(data.date)}`, `BAYAR    : ${receiptText(data.method)}`, divider, ...items, divider, receiptRow('TOTAL', rupiah(data.total)), '', receiptCenter('Terima kasih'), receiptCenter('Sampai jumpa kembali'), ''].join('\n');
+  }
+  async function shareTabletReceipt(data) {
+    const filename = `struk-${String(data.receiptNumber || 'nesbooth').replace(/[^a-z0-9_-]/gi, '')}.txt`;
+    const file = new File([tabletReceiptText(data)], filename, {type:'text/plain'});
+    if (navigator.share) {
+      const payload = {title:'Struk NESBOOTH', text:'Pilih aplikasi printer Bluetooth untuk mencetak struk.'};
+      if (!navigator.canShare || navigator.canShare({files:[file]})) payload.files = [file];
+      await navigator.share(payload);
+      return;
+    }
+    const url = URL.createObjectURL(file), link = document.createElement('a');
+    link.href = url; link.download = filename; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    show('File struk tersimpan. Buka melalui aplikasi printer Bluetooth.');
+  }
   // Minuman langsung masuk ke keranjang tanpa pilihan level gula atau es.
   cart.forEach(item => delete item.variant);
   change = function(index, delta, encodedVariant = '') { const variant = decodeURIComponent(encodedVariant || ''); const entry = cart.find(item => item.i === index && (item.variant || '') === variant); if (!entry) return; entry.q += delta; if (entry.q < 1) cart = cart.filter(item => item !== entry); renderCart(); };
@@ -39,7 +70,7 @@
     document.head.appendChild(pageStyle);
     const wrapper = document.createElement('div'); wrapper.id = 'receiptToPrint'; wrapper.className = 'receipt-sheet';
     const lines = data.items.map(item => { const parts = String(item.name).split(' — '); const main = parts.shift(); const variant = parts.join(' — '); const options = variant ? variant.split(' • ').map(option => `<small style="display:block;padding-left:12px">${safe(option)}</small>`).join('') : ''; return `<div class="receipt-line"><span><b>${item.qty} ${safe(main)}</b>${options}</span><b>${rupiah(item.price * item.qty)}</b></div>`; }).join('');
-    wrapper.innerHTML = `<article class="receipt-paper"><h2>NESBOOTH</h2><p class="sub">STRUK PEMBAYARAN<br>Jl. Karya No.A3, Karang Berombak<br>Medan, Sumatera Utara 20117</p><div class="receipt-meta"><div>ANTRIAN : <b>${safe(data.queueNumber)}</b></div><div>RCPT# : ${safe(data.receiptNumber)}</div><div>TANGGAL : ${safe(data.date)}</div><div>BAYAR : ${safe(data.method)}</div></div><div class="receipt-lines">${lines}</div><div class="receipt-summary"><div class="receipt-total"><span>TOTAL</span><span>${rupiah(data.total)}</span></div><p class="sub">Terima kasih<br>Sampai jumpa kembali</p></div><div class="receipt-tail"></div><div class="receipt-actions"><button class="close-receipt">Tutup</button><button class="print-receipt">🖨 Cetak Struk</button></div></article>`;
+    wrapper.innerHTML = `<article class="receipt-paper"><h2>NESBOOTH</h2><p class="sub">STRUK PEMBAYARAN<br>Jl. Karya No.A3, Karang Berombak<br>Medan, Sumatera Utara 20117</p><div class="receipt-meta"><div>ANTRIAN : <b>${safe(data.queueNumber)}</b></div><div>RCPT# : ${safe(data.receiptNumber)}</div><div>TANGGAL : ${safe(data.date)}</div><div>BAYAR : ${safe(data.method)}</div></div><div class="receipt-lines">${lines}</div><div class="receipt-summary"><div class="receipt-total"><span>TOTAL</span><span>${rupiah(data.total)}</span></div><p class="sub">Terima kasih<br>Sampai jumpa kembali</p></div><div class="receipt-tail"></div><div class="receipt-actions"><button class="close-receipt">Tutup</button><button class="print-receipt">🖨 Cetak Struk</button><button class="tablet-receipt">↗ Bagikan ke Printer Bluetooth</button></div><p class="tablet-print-note">Pilih RawBT, PrintHand, atau aplikasi printer Bluetooth Anda.</p></article>`;
     document.body.appendChild(wrapper);
     wrapper.querySelector('.close-receipt').onclick = () => { wrapper.remove(); pageStyle.remove(); };
     wrapper.querySelector('.print-receipt').onclick = async () => {
@@ -50,6 +81,10 @@
         } else window.print();
       } catch (error) { show(error.message || 'Cetak otomatis gagal. Membuka dialog cetak.'); window.print(); }
       finally { button.disabled = false; button.textContent = '🖨 Cetak Struk'; }
+    };
+    wrapper.querySelector('.tablet-receipt').onclick = async () => {
+      try { await shareTabletReceipt(data); }
+      catch (error) { if (error?.name !== 'AbortError') show('Struk belum dapat dibagikan. Pastikan aplikasi printer Bluetooth sudah terpasang.'); }
     };
   }
   const queueDay = () => new Date().toLocaleDateString('sv-SE');
