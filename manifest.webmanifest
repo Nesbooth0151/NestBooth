@@ -1,13 +1,13 @@
 {
-  "name": "KasirKita POS",
-  "short_name": "KasirKita",
-  "description": "Aplikasi kasir, stok bahan baku, dan antrian.",
+  "name": "NESBOOTH POS",
+  "short_name": "NESBOOTH",
+  "description": "Aplikasi kasir, stok bahan baku, dan antrian NESBOOTH.",
   "lang": "id",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f4f7fb",
-  "theme_color": "#102a43",
+  "theme_color": "#ed1c24",
   "icons": [
     {
       "src": "icon.svg",
