@@ -95,5 +95,12 @@
       show('Pengeluaran kas berhasil dicatat.'); await load();
     } catch (error) { show(error.message || 'Pengeluaran kas tidak dapat disimpan.'); button.disabled = false; button.textContent = 'Catat Pengeluaran'; }
   }
-  load(); setInterval(load, 30000);
+  // Jangan menimpa formulir yang sedang diisi kasir. Data shift tetap
+  // diperbarui berkala, tetapi pembaruan ditunda selama kursor berada pada
+  // salah satu kolom formulir di halaman ini.
+  const refreshIfIdle = () => {
+    if (root.contains(document.activeElement)) return;
+    load();
+  };
+  load(); setInterval(refreshIfIdle, 30000);
 })();
