@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kasirkita-pos-v79';
+const CACHE_NAME = 'kasirkita-pos-v80';
 const APP_FILES = [
   './',
   './index.html',
@@ -27,7 +27,8 @@ const APP_FILES = [
   './dashboard-realtime.js',
   './login-page.js',
   './manifest.webmanifest',
-  './icon.svg'
+  './icon.svg',
+  './icon.svg?v=80'
 ];
 
 self.addEventListener('install', (event) => {
