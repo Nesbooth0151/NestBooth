@@ -84,6 +84,8 @@
       check();
     });
   };
+  let lastCatalogSignature = '';
+  let lastQueueSignature = '';
   async function loadCloudData() {
     // Bar hanya membutuhkan antrean. Jangan memanggil bootstrap karena endpoint
     // tersebut memuat stok dan penjualan yang memang tidak boleh dibuka untuk Bar.
@@ -99,6 +101,12 @@
       window.dispatchEvent(new Event('nesbooth-cloud-updated'));
       window.nesboothCloudCreateSale = createCloudSale;
       window.nesboothCloudCreateMidtransPayment = createMidtransPayment;
+      const catalogSignature = JSON.stringify({products: data.products, materials: data.materials, recipes: data.recipes || [], settings: data.settings || {}});
+      const catalogChanged = catalogSignature !== lastCatalogSignature;
+      const nextQueue = data.queues.map(item => ({id: item.id, n: item.queue_number, name: '', items: item.item_count + ' item', status: item.status}));
+      const nextCurrent = Math.max(0, nextQueue.findIndex(item => item.status === 'Diproses'));
+      const queueSignature = JSON.stringify({items: nextQueue, current: nextCurrent});
+      const queueChanged = queueSignature !== lastQueueSignature;
       products.splice(0, products.length, ...data.products.map(product => [product.name, product.category, Number(product.price), 100, '🥤']));
       materials.splice(0, materials.length, ...data.materials.map(material => ({name: material.name, unit: material.unit, stock: Number(material.stock), min: Number(material.min_stock)})));
       const materialNames = new Map(data.materials.map(material => [material.id, material.name]));
@@ -113,9 +121,16 @@
         appSettings = {storeName: data.settings.store_name, taxPercent: 0, queuePrefix: data.settings.queue_prefix};
         document.querySelector('.brand').childNodes[1].textContent = ' ' + String(appSettings.storeName).toUpperCase();
       }
-      queue.splice(0, queue.length, ...data.queues.map(item => ({id: item.id, n: item.queue_number, name: '', items: item.item_count + ' item', status: item.status})));
-      current = Math.max(0, queue.findIndex(item => item.status === 'Diproses'));
-      renderProducts(); renderCart(); refreshStockAdmin(); renderQueue();
+      queue.splice(0, queue.length, ...nextQueue);
+      current = nextCurrent;
+      if (catalogChanged) {
+        lastCatalogSignature = catalogSignature;
+        renderProducts(); renderCart(); refreshStockAdmin();
+      }
+      if (queueChanged) {
+        lastQueueSignature = queueSignature;
+        renderQueue();
+      }
     } catch (error) {
       const message = error.message || 'Server tidak dapat dihubungi';
       console.info('Koneksi database NesBooth gagal:', message);
