@@ -34,11 +34,41 @@
     bytes.forEach(byte => { binary += String.fromCharCode(byte); });
     return btoa(binary);
   }
+  function rawBtReceiptText(data) {
+    // Perintah ESC/POS dasar yang didukung printer thermal 58 mm: reset,
+    // rata tengah/kiri, dan tebal. Isi tetap teks monospasi 32 kolom.
+    const esc = '\x1B';
+    const align = value => esc + 'a' + String.fromCharCode(value);
+    const bold = enabled => esc + 'E' + String.fromCharCode(enabled ? 1 : 0);
+    const divider = '-'.repeat(32);
+    const itemLines = data.items.flatMap(item => {
+      const parts = String(item.name).split(' — ');
+      const name = receiptText(parts.shift());
+      const price = rupiah(item.price * item.qty);
+      const extra = parts.flatMap(part => part.split(' • ').map(option => `  ${receiptText(option)}`));
+      return [receiptRow(`${item.qty} ${name}`, price), ...extra];
+    });
+    return [
+      esc + '@', align(1), bold(true), 'NESBOOTH\n', bold(false),
+      'STRUK PEMBAYARAN\n',
+      'Jl. Karya No. A3, Karang Berombak\n',
+      'Medan, Sumatera Utara 20117\n',
+      align(0), divider, '\n',
+      `ANTRIAN : ${receiptText(data.queueNumber)}\n`,
+      `RCPT#    : ${receiptText(data.receiptNumber)}\n`,
+      `TANGGAL  : ${receiptText(data.date).replace(',', '')}\n`,
+      `BAYAR    : ${receiptText(data.method)}\n`,
+      divider, '\n',
+      ...itemLines.map(line => `${line}\n`),
+      divider, '\n', bold(true), receiptRow('TOTAL', rupiah(data.total)), '\n', bold(false),
+      align(1), '\nTerima kasih\nSampai jumpa kembali\n', align(0), '\n\n\n'
+    ].join('');
+  }
   function printViaRawBt(data) {
     // RawBT menerima data ESC/POS melalui Android Intent. Package dikunci ke
     // RawBT agar Android tidak memunculkan pilihan aplikasi setiap kali cetak.
     if (!/Android/i.test(navigator.userAgent)) return false;
-    const encoded = base64Utf8(tabletReceiptText(data) + '\n\n\n');
+    const encoded = base64Utf8(rawBtReceiptText(data));
     const intent = `intent:base64,${encoded}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
     window.location.href = intent;
     return true;
