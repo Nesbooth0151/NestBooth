@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kasirkita-pos-v82';
+const CACHE_NAME = 'kasirkita-pos-v83';
 const APP_FILES = [
   './',
   './index.html',
@@ -28,7 +28,14 @@ const APP_FILES = [
   './login-page.js',
   './manifest.webmanifest',
   './icon.svg',
-  './icon.svg?v=80'
+  './icon.svg?v=80',
+  './assets/menu/01-Neslo.jpg',
+  './assets/menu/02-Nestea.jpg',
+  './assets/menu/03-Lemonade.jpg',
+  './assets/menu/04-Blackcurrant.jpg',
+  './assets/menu/05-Milo.jpg',
+  './assets/menu/06-Coffee.jpg',
+  './assets/menu/07-Ice-Roast.jpg'
 ];
 
 self.addEventListener('install', (event) => {
