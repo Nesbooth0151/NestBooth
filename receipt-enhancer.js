@@ -28,6 +28,21 @@
     });
     return [receiptCenter('NESBOOTH'), receiptCenter('STRUK PEMBAYARAN'), receiptCenter('Jl. Karya No.A3, Karang Berombak'), receiptCenter('Medan, Sumatera Utara 20117'), divider, `ANTRIAN : ${receiptText(data.queueNumber)}`, `RCPT#    : ${receiptText(data.receiptNumber)}`, `TANGGAL  : ${receiptText(data.date)}`, `BAYAR    : ${receiptText(data.method)}`, divider, ...items, divider, receiptRow('TOTAL', rupiah(data.total)), '', receiptCenter('Terima kasih'), receiptCenter('Sampai jumpa kembali'), ''].join('\n');
   }
+  function base64Utf8(text) {
+    const bytes = new TextEncoder().encode(text);
+    let binary = '';
+    bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+    return btoa(binary);
+  }
+  function printViaRawBt(data) {
+    // RawBT menerima data ESC/POS melalui Android Intent. Package dikunci ke
+    // RawBT agar Android tidak memunculkan pilihan aplikasi setiap kali cetak.
+    if (!/Android/i.test(navigator.userAgent)) return false;
+    const encoded = base64Utf8(tabletReceiptText(data) + '\n\n\n');
+    const intent = `intent:base64,${encoded}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+    window.location.href = intent;
+    return true;
+  }
   async function shareTabletReceipt(data) {
     const filename = `struk-${String(data.receiptNumber || 'nesbooth').replace(/[^a-z0-9_-]/gi, '')}.txt`;
     const file = new File([tabletReceiptText(data)], filename, {type:'text/plain'});
@@ -73,7 +88,13 @@
     document.body.appendChild(wrapper);
     wrapper.querySelector('.close-receipt').onclick = () => { wrapper.remove(); pageStyle.remove(); };
     wrapper.querySelector('.receipt-print').onclick = async () => {
-      try { await shareTabletReceipt(data); }
+      try {
+        if (printViaRawBt(data)) {
+          show('Struk dikirim ke RawBT.');
+          return;
+        }
+        await shareTabletReceipt(data);
+      }
       catch (error) { if (error?.name !== 'AbortError') show('Struk belum dapat dibagikan. Pastikan aplikasi printer Bluetooth sudah terpasang.'); }
     };
   }
