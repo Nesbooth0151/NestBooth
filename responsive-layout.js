@@ -21,6 +21,15 @@
       .two-col, .queue-grid { gap: 16px; }
     }
 
+    /* Tablet landscape: daftar antrean tidak lagi berebut ruang dengan layar panggilan. */
+    @media (min-width: 601px) and (max-width: 1280px) {
+      .queue-grid { grid-template-columns: minmax(0, 1fr); }
+      .queue-grid > .display { min-height: 220px; padding: 24px 18px; }
+      .queue-actions { flex-wrap: wrap; }
+      .queue-actions .btn { flex: 1 1 170px; text-align: center; }
+      .queue-item { min-width: 0; }
+    }
+
     @media (max-width: 900px) {
       body { padding-bottom: 70px; }
       .main { padding: 16px; }
