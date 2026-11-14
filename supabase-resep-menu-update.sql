@@ -6,11 +6,11 @@
 -- Setelah SQL dijalankan, bahan tersebut tidak muncul lagi pada stok aktif.
 alter table public.materials add column if not exists is_active boolean not null default true;
 update public.materials set is_active = false
-where lower(trim(name)) in ('milo 3 in 1 sachet', 'milo 3 in 1', 'creamer');
+where lower(trim(name)) in ('milo 3 in 1 sachet', 'milo 3 in 1', 'creamer + aren', 'gula aren');
 delete from public.product_recipes recipe
 using public.materials material
 where recipe.material_id = material.id
-  and lower(trim(material.name)) in ('milo 3 in 1 sachet', 'milo 3 in 1', 'creamer');
+  and lower(trim(material.name)) in ('milo 3 in 1 sachet', 'milo 3 in 1', 'creamer + aren', 'gula aren');
 
 -- Tambahkan bahan yang belum ada. Stok awal 0 agar diisi sesuai stok fisik.
 insert into public.materials (name, unit, stock, min_stock)
@@ -21,9 +21,7 @@ from (values
   ('Bubuk Lemon Tea', 'gram'),
   ('Es', 'gram'),
   ('Air', 'ml'),
-  ('Gula Aren', 'gram'),
   ('Creamer', 'gram'),
-  ('Creamer + Aren', 'gram'),
   ('Milo Bubuk', 'gram'),
   ('Nescafé Ice Roast Sachet', 'pcs'),
   ('Susu Kental Manis', 'gram')
@@ -32,6 +30,10 @@ where not exists (
   select 1 from public.materials material
   where lower(material.name) = lower(source.name)
 );
+
+-- Creamer kembali dipakai oleh resep Caffè Latte sehingga harus aktif.
+update public.materials set is_active = true
+where lower(trim(name)) = 'creamer';
 
 -- Ganti resep lama untuk menu yang diperbarui agar tidak ada takaran ganda.
 delete from public.product_recipes recipe
@@ -62,7 +64,6 @@ from (values
   ('Nestea Lemon Tea', 'Air', '', 150),
 
   -- NESLO
-  ('NESLO', 'Gula Aren', '', 10),
   ('NESLO', 'Milo Bubuk', '', 20),
   ('NESLO', 'Nescafé Ice Roast Sachet', '', 2),
   ('NESLO', 'Susu Kental Manis', '', 15),
@@ -70,45 +71,44 @@ from (values
   ('NESLO', 'Es', '', 160),
 
   -- Caffe Latte: Normal dan Less (dingin)
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Normal Dingin', 50),
+  ('Nescafé Caffe Latte', 'Creamer', 'Normal Dingin', 50),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Normal Dingin', 2),
   ('Nescafé Caffe Latte', 'Air', 'Normal Dingin', 120),
   ('Nescafé Caffe Latte', 'Es', 'Normal Dingin', 160),
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Less Dingin', 50),
+  ('Nescafé Caffe Latte', 'Creamer', 'Less Dingin', 50),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Less Dingin', 2),
   ('Nescafé Caffe Latte', 'Air', 'Less Dingin', 120),
   ('Nescafé Caffe Latte', 'Es', 'Less Dingin', 160),
 
   -- Caffe Latte: Nano
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Nano Dingin', 45),
+  ('Nescafé Caffe Latte', 'Creamer', 'Nano Dingin', 45),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Nano Dingin', 2),
   ('Nescafé Caffe Latte', 'Air', 'Nano Dingin', 120),
   ('Nescafé Caffe Latte', 'Es', 'Nano Dingin', 160),
 
   -- Caffe Latte: Strong (3 sachet Ice Roast)
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Strong Dingin', 50),
+  ('Nescafé Caffe Latte', 'Creamer', 'Strong Dingin', 50),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Strong Dingin', 3),
   ('Nescafé Caffe Latte', 'Air', 'Strong Dingin', 120),
   ('Nescafé Caffe Latte', 'Es', 'Strong Dingin', 160),
 
   -- Caffe Latte panas: takaran sama, tanpa Es
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Normal Panas', 50),
+  ('Nescafé Caffe Latte', 'Creamer', 'Normal Panas', 50),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Normal Panas', 2),
   ('Nescafé Caffe Latte', 'Air', 'Normal Panas', 120),
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Less Panas', 50),
+  ('Nescafé Caffe Latte', 'Creamer', 'Less Panas', 50),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Less Panas', 2),
   ('Nescafé Caffe Latte', 'Air', 'Less Panas', 120),
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Nano Panas', 45),
+  ('Nescafé Caffe Latte', 'Creamer', 'Nano Panas', 45),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Nano Panas', 2),
   ('Nescafé Caffe Latte', 'Air', 'Nano Panas', 120),
-  ('Nescafé Caffe Latte', 'Creamer + Aren', 'Strong Panas', 50),
+  ('Nescafé Caffe Latte', 'Creamer', 'Strong Panas', 50),
   ('Nescafé Caffe Latte', 'Nescafé Ice Roast Sachet', 'Strong Panas', 3),
   ('Nescafé Caffe Latte', 'Air', 'Strong Panas', 120),
 
   -- Milo
   ('Nestlé Milo', 'Milo Bubuk', '', 20),
   ('Nestlé Milo', 'Susu Kental Manis', '', 15),
-  ('Nestlé Milo', 'Gula Aren', '', 10),
   ('Nestlé Milo', 'Air', '', 150),
   ('Nestlé Milo', 'Es', '', 160)
 ) as recipe(product_name, material_name, variant, amount)

@@ -6,7 +6,8 @@
     const session = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null');
     if (session?.role !== 'admin') return;
   } catch { return; }
-  const host = document.querySelector('#produk .table-card');
+  // Tata letak stok kini memakai inventory-card, bukan table-card lama.
+  const host = document.querySelector('#produk .inventory-card');
   const stockForm = document.getElementById('stockForm');
   if (!host || !stockForm) return;
 
@@ -34,11 +35,18 @@
       return `<tr><td><b>${material.name}</b></td><td>${format(stock)} ${material.unit}</td><td>${format(min)} ${material.unit}</td><td><b style="color:#b54708">+${format(suggestion)} ${material.unit}</b></td></tr>`;
     }).join('');
     const options = materials.map((material, index) => `<option value="${index}">${material.name}</option>`).join('');
-    box.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2 style="margin:0;font-size:16px">⚠ Peringatan Stok</h2><p class="muted" style="margin:4px 0 0">Restok disarankan hingga dua kali stok minimum.</p></div><span class="badge ${low.length ? 'wait' : 'ready'}">${low.length ? `${low.length} bahan perlu restok` : 'Stok aman'}</span></div><div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:13px"><label style="display:grid;gap:4px;font-weight:650;font-size:12px">Batas bahan<select id="minimumMaterial" style="height:34px;border:1px solid #e4eaf1;border-radius:7px;padding:0 8px;min-width:170px">${options}</select></label><label style="display:grid;gap:4px;font-weight:650;font-size:12px">Stok minimum<input id="minimumValue" type="number" min="0" style="height:34px;border:1px solid #e4eaf1;border-radius:7px;padding:0 8px;width:120px"></label><button id="saveMinimum" class="btn" type="button">Simpan batas</button></div>${low.length ? `<table style="margin-top:12px"><tr><th>Bahan</th><th>Saat ini</th><th>Minimum</th><th>Rekomendasi</th></tr>${rows}</table>` : '<p class="muted" style="margin:12px 0 0">Tidak ada bahan yang berada di bawah batas minimum.</p>'}`;
+    box.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h2 style="margin:0;font-size:16px">⚠ Peringatan Stok</h2><p class="muted" style="margin:4px 0 0">Restok disarankan hingga dua kali stok minimum.</p></div><span class="badge ${low.length ? 'wait' : 'ready'}">${low.length ? `${low.length} bahan perlu restok` : 'Stok aman'}</span></div><button id="toggleMinimumEditor" class="btn ghost" type="button" style="margin-top:13px">Atur Stok Minimum</button><div id="minimumEditor" style="display:none;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px;padding:12px;background:#f5f9ff;border:1px solid #d9e8fb;border-radius:9px"><label style="display:grid;gap:4px;font-weight:650;font-size:12px">Bahan baku<select id="minimumMaterial" style="height:34px;border:1px solid #e4eaf1;border-radius:7px;padding:0 8px;min-width:170px">${options}</select></label><label style="display:grid;gap:4px;font-weight:650;font-size:12px">Stok minimum<input id="minimumValue" type="number" min="0" style="height:34px;border:1px solid #e4eaf1;border-radius:7px;padding:0 8px;width:120px"></label><button id="saveMinimum" class="btn" type="button">Simpan Minimum</button></div>${low.length ? `<table style="margin-top:12px"><tr><th>Bahan</th><th>Saat ini</th><th>Minimum</th><th>Rekomendasi</th></tr>${rows}</table>` : '<p class="muted" style="margin:12px 0 0">Tidak ada bahan yang berada di bawah batas minimum.</p>'}`;
     const select = document.getElementById('minimumMaterial');
     const input = document.getElementById('minimumValue');
     const setValue = () => { input.value = threshold(materials[Number(select.value)]); };
     select.addEventListener('change', setValue); setValue();
+    document.getElementById('toggleMinimumEditor').addEventListener('click', () => {
+      const editor = document.getElementById('minimumEditor');
+      const isOpen = editor.style.display === 'flex';
+      editor.style.display = isOpen ? 'none' : 'flex';
+      document.getElementById('toggleMinimumEditor').textContent = isOpen ? 'Atur Stok Minimum' : 'Tutup Pengaturan Minimum';
+      if (!isOpen) select.focus();
+    });
     document.getElementById('saveMinimum').addEventListener('click', async () => {
       const material = materials[Number(select.value)], minimum = Number(input.value);
       if (!material || !Number.isFinite(minimum) || minimum < 0) return show('Batas stok minimum tidak valid.');
@@ -48,7 +56,7 @@
         const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'Batas stok tidak dapat disimpan');
         await window.nesboothCloudReload?.(); refreshAlerts(); show(`Batas minimum ${material.name} disimpan.`);
       } catch (error) { show(error.message || 'Batas stok tidak dapat disimpan.'); }
-      finally { button.disabled = false; button.textContent = 'Simpan batas'; }
+      finally { button.disabled = false; button.textContent = 'Simpan Minimum'; }
     });
   };
 
