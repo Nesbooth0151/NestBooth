@@ -1,6 +1,12 @@
 // Laporan penjualan online: seluruh nilai diambil dari database pusat Supabase.
 (() => {
   if (!/\.onrender\.com$/i.test(location.hostname)) return;
+  // Halaman laporan lengkap adalah fitur Admin. Jangan menjalankan request
+  // laporan saat Kasir login karena server memang menolaknya.
+  try {
+    const session = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null');
+    if (session?.role !== 'admin') return;
+  } catch { return; }
   const page = document.getElementById('laporan');
   if (!page) return;
   const money = value => 'Rp' + Number(value || 0).toLocaleString('id-ID');

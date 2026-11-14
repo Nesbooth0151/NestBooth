@@ -1,6 +1,11 @@
 // Peringatan stok dan riwayat pergerakan bahan baku dari database pusat.
 (() => {
   if (!/\.onrender\.com$/i.test(location.hostname)) return;
+  // Peringatan beserta riwayat stok di halaman pengelolaan adalah khusus Admin.
+  try {
+    const session = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null');
+    if (session?.role !== 'admin') return;
+  } catch { return; }
   const host = document.querySelector('#produk .table-card');
   const stockForm = document.getElementById('stockForm');
   if (!host || !stockForm) return;

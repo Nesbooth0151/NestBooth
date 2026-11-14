@@ -1,6 +1,11 @@
 // Laba per produk dihitung dari harga jual pada transaksi dan biaya bahan pada resep.
 (() => {
   if (!/\.onrender\.com$/i.test(location.hostname)) return;
+  // Endpoint laba mengandung biaya bahan dan hanya boleh dimuat oleh Admin.
+  try {
+    const session = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null');
+    if (session?.role !== 'admin') return;
+  } catch { return; }
   const page = document.getElementById('laporan');
   if (!page) return;
   const money = value => 'Rp' + Number(value || 0).toLocaleString('id-ID', {maximumFractionDigits: 2});
