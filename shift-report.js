@@ -26,8 +26,8 @@
 
   const recentRows = shifts => shifts.length ? shifts.map(shift => {
     const difference = Number(shift.cash_difference || 0);
-    return `<tr><td>${date(shift.opened_at)}</td><td>${safe(shift.cashier_name)}</td><td>${money(shift.opening_cash)}</td><td>${money(shift.cash_sales)}</td><td>${money(shift.qris_sales)}</td><td>${money(shift.cash_expenses)}</td><td>${money(shift.counted_cash)}</td><td style="font-weight:750;color:${difference === 0 ? '#078354' : '#b54708'}">${difference > 0 ? '+' : ''}${money(difference)}</td><td><button class="btn ghost shift-detail" data-id="${shift.id}" type="button">Detail</button></td></tr>`;
-  }).join('') : '<tr><td colspan="9" class="muted" style="text-align:center;padding:18px">Belum ada shift yang ditutup.</td></tr>';
+    return `<tr><td>${date(shift.opened_at)}</td><td>${shift.closed_at ? date(shift.closed_at) : '—'}</td><td>${safe(shift.cashier_name)}</td><td>${money(shift.opening_cash)}</td><td>${money(shift.cash_sales)}</td><td>${money(shift.qris_sales)}</td><td>${money(shift.cash_expenses)}</td><td>${money(shift.counted_cash)}</td><td style="font-weight:750;color:${difference === 0 ? '#078354' : '#b54708'}">${difference > 0 ? '+' : ''}${money(difference)}</td><td><button class="btn ghost shift-detail" data-id="${shift.id}" type="button">Detail</button></td></tr>`;
+  }).join('') : '<tr><td colspan="10" class="muted" style="text-align:center;padding:18px">Belum ada shift yang ditutup.</td></tr>';
 
   const render = () => {
     const open = data?.openShift;
@@ -48,7 +48,7 @@
   };
 
   const expensesMarkup = expenses => `<div class="shift-expense-history" style="overflow:auto"><table><tr><th>Waktu</th><th>Kategori</th><th>Keterangan</th><th>Stok Masuk</th><th>Petugas</th><th>Nominal</th></tr>${expenses.length ? expenses.map(expense => `<tr><td>${date(expense.created_at)}</td><td>${safe(expense.category)}</td><td>${safe(expense.description)}</td><td>${expense.material ? `+${Number(expense.stock_quantity).toLocaleString('id-ID')} ${safe(expense.material.unit)} ${safe(expense.material.name)}` : '—'}</td><td>${safe(expense.created_by)}</td><td style="font-weight:750;color:#b54708">−${money(expense.amount)}</td></tr>`).join('') : '<tr><td colspan="6" class="muted" style="text-align:center;padding:14px">Belum ada pengeluaran kas pada shift ini.</td></tr>'}</table></div>`;
-  const historyMarkup = () => `<section class="shift-history"><h2>Riwayat Shift</h2><div style="overflow:auto"><table style="min-width:980px"><tr><th>Dibuka</th><th>Kasir</th><th>Kas Awal</th><th>Tunai</th><th>QRIS</th><th>Keluar</th><th>Kas Fisik</th><th>Selisih</th><th></th></tr>${recentRows(data?.recent || [])}</table></div></section>`;
+  const historyMarkup = () => `<section class="shift-history"><h2>Riwayat Shift</h2><div style="overflow:auto"><table style="min-width:1130px"><tr><th>Dibuka</th><th>Ditutup</th><th>Kasir</th><th>Kas Awal</th><th>Tunai</th><th>QRIS</th><th>Keluar</th><th>Kas Fisik</th><th>Selisih</th><th></th></tr>${recentRows(data?.recent || [])}</table></div></section>`;
 
   function bindDetailButtons() {
     root.querySelectorAll('.shift-detail').forEach(button => button.addEventListener('click', () => showDetail(button.dataset.id)));
