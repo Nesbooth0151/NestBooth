@@ -59,7 +59,7 @@ security definer
 set search_path = public
 as $$
   select * from (
-    select movement.created_at, 'in'::text as movement_type, material.name as material_name,
+    select movement.created_at, movement.movement_type, material.name as material_name,
       material.unit, movement.quantity, coalesce(nullif(movement.note, ''), 'Restok manual') as note
     from public.material_stock_movements movement
     join public.materials material on material.id = movement.material_id
