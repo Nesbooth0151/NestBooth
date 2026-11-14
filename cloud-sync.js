@@ -107,27 +107,29 @@
       const nextCurrent = Math.max(0, nextQueue.findIndex(item => item.status === 'Diproses'));
       const queueSignature = JSON.stringify({items: nextQueue, current: nextCurrent});
       const queueChanged = queueSignature !== lastQueueSignature;
-      products.splice(0, products.length, ...data.products.map(product => [product.name, product.category, Number(product.price), 100, '🥤']));
-      materials.splice(0, materials.length, ...data.materials.map(material => ({name: material.name, unit: material.unit, stock: Number(material.stock), min: Number(material.min_stock)})));
-      const materialNames = new Map(data.materials.map(material => [material.id, material.name]));
-      const recipeByProduct = new Map(data.products.map(product => [product.id, {}]));
-      (data.recipes || []).forEach(recipe => {
-        const materialName = materialNames.get(recipe.material_id);
-        const productRecipe = recipeByProduct.get(recipe.product_id);
-        if (materialName && productRecipe) productRecipe[materialName] = Number(recipe.amount);
-      });
-      recipes.splice(0, recipes.length, ...data.products.map(product => recipeByProduct.get(product.id) || {}));
-      if (data.settings) {
-        appSettings = {storeName: data.settings.store_name, taxPercent: 0, queuePrefix: data.settings.queue_prefix};
-        document.querySelector('.brand').childNodes[1].textContent = ' ' + String(appSettings.storeName).toUpperCase();
-      }
-      queue.splice(0, queue.length, ...nextQueue);
-      current = nextCurrent;
       if (catalogChanged) {
+        products.splice(0, products.length, ...data.products.map(product => [product.name, product.category, Number(product.price), 100, '🥤']));
+        materials.splice(0, materials.length, ...data.materials.map(material => ({name: material.name, unit: material.unit, stock: Number(material.stock), min: Number(material.min_stock)})));
+        const materialNames = new Map(data.materials.map(material => [material.id, material.name]));
+        const recipeByProduct = new Map(data.products.map(product => [product.id, {}]));
+        (data.recipes || []).forEach(recipe => {
+          const materialName = materialNames.get(recipe.material_id);
+          const productRecipe = recipeByProduct.get(recipe.product_id);
+          if (materialName && productRecipe) productRecipe[materialName] = Number(recipe.amount);
+        });
+        recipes.splice(0, recipes.length, ...data.products.map(product => recipeByProduct.get(product.id) || {}));
+        if (data.settings) {
+          appSettings = {storeName: data.settings.store_name, taxPercent: 0, queuePrefix: data.settings.queue_prefix};
+          document.querySelector('.brand').childNodes[1].textContent = ' ' + String(appSettings.storeName).toUpperCase();
+        }
         lastCatalogSignature = catalogSignature;
         renderProducts(); renderCart(); refreshStockAdmin();
       }
       if (queueChanged) {
+        // Jangan mengganti objek antrean saat data server sama. Tombol pada
+        // baris antrean menyimpan referensi objek ini agar tetap stabil.
+        queue.splice(0, queue.length, ...nextQueue);
+        current = nextCurrent;
         lastQueueSignature = queueSignature;
         renderQueue();
       }
