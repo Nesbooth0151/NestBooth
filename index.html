@@ -130,13 +130,18 @@ async function loadSharedQueue(){
     const saved=await r.json();
     queue.splice(0,queue.length,...(Array.isArray(saved.queue)?saved.queue:[]));
     current=Math.max(0,Number(saved.current)||0);
-    originalRenderQueue();
+    // Gunakan renderer terbaru agar tombol Proses/Selesai tidak hilang saat
+    // antrean perangkat Bar diperbarui dari server.
+    renderQueue();
   }catch(e){console.warn('Antrean online belum dapat dimuat',e)}
 }
-loadSharedQueue();
-// Perangkat Bar tidak memuat bootstrap POS agar tidak menerima data stok atau
-// penjualan. Karena itu ia memperbarui antrean melalui endpoint khusus ini.
-setInterval(loadSharedQueue,5000);
+let sharedQueueSession=null;try{sharedQueueSession=JSON.parse(localStorage.getItem('nesbooth-pos-session')||'null')}catch(e){}
+// Di Render, Admin dan Kasir memakai cloud-sync.js. Endpoint ini khusus akun
+// Bar agar tidak ada dua sinkronisasi yang saling merender daftar antrean.
+if(!/\.onrender\.com$/i.test(location.hostname)||sharedQueueSession?.role==='bar'){
+  loadSharedQueue();
+  setInterval(loadSharedQueue,5000);
+}
 </script>
 <script src="login-page.js"></script>
 <script src="tv-access.js"></script>
