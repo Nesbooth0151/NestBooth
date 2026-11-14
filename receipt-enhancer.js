@@ -131,17 +131,27 @@
   const baseRenderQueue = renderQueue;
   renderQueue = function(){
     baseRenderQueue();
-    // Antrean yang belum selesai dapat ditutup manual setelah pesanan diterima.
-    // Tombol dibuat di sini agar tetap kompatibel dengan tampilan antrean lama.
+    // Buat satu area aksi yang konsisten untuk setiap baris. Data antrean dapat
+    // dimuat ulang dari server sewaktu-waktu, sehingga tombol tidak boleh
+    // bergantung pada posisi elemen lama di layar.
     document.querySelectorAll('#queueList .queue-item').forEach((row, index) => {
       const item = queue[index];
       if (!item || item.status === 'Selesai') return;
+      const actions = document.createElement('div');
+      actions.className = 'queue-row-actions';
+      const processButton = row.querySelector('button[onclick^="startQueue"]');
+      if (processButton) {
+        processButton.removeAttribute('onclick');
+        processButton.addEventListener('click', () => startQueue(queue.indexOf(item)));
+        actions.appendChild(processButton);
+      }
       const button = document.createElement('button');
-      button.className = 'btn ghost';
+      button.className = 'btn ghost queue-finish-button';
       button.type = 'button';
       button.textContent = 'Selesai';
-      button.addEventListener('click', () => finishQueue(index));
-      row.appendChild(button);
+      button.addEventListener('click', () => finishQueue(queue.indexOf(item)));
+      actions.appendChild(button);
+      row.appendChild(actions);
     });
     if (!queue.some(item => item.status === 'Diproses')) {
       nowNumber.textContent = '—';

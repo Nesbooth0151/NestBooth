@@ -12,6 +12,8 @@
     .catalog, .cart, .section, .table-card { min-width: 0; }
     .product { min-width: 0; }
     .pname, .item-name, td, th { overflow-wrap: anywhere; }
+    .queue-row-actions { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+    .queue-row-actions .btn { white-space: nowrap; }
 
     @media (max-width: 1100px) {
       .main { padding: 20px 22px; }
@@ -74,8 +76,8 @@
       .bar { min-width: 12px; }
       .queue-item { align-items: flex-start; gap: 9px; padding: 11px 4px; flex-wrap: wrap; }
       .queue-item .number { width: 50px; font-size: 18px; }
-      .queue-item > div:last-child { width: 100%; display: flex; gap: 6px; padding-left: 59px; }
-      .queue-item .btn { flex: 1; padding: 8px 6px; }
+      .queue-row-actions { width: 100%; display: flex; gap: 6px; padding-left: 59px; margin-left: 0; }
+      .queue-row-actions .btn { flex: 1; padding: 8px 6px; }
       .display { padding: 20px 14px; }
       .now { font-size: 42px; }
       .subbtn { gap: 7px; }
