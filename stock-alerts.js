@@ -66,10 +66,11 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Riwayat stok tidak dapat dimuat');
       const rows = (data.movements || []).map(row => {
-        const incoming = row.movement_type === 'in' || row.movement_type === 'return';
-        const label = row.movement_type === 'in' ? 'Stok masuk' : row.movement_type === 'return' ? 'Pengembalian' : 'Terpakai';
+        const quantity = Number(row.quantity || 0);
+        const incoming = row.movement_type === 'in' || row.movement_type === 'return' || (row.movement_type === 'adjustment' && quantity > 0);
+        const label = row.movement_type === 'in' ? 'Stok masuk' : row.movement_type === 'return' ? 'Pengembalian' : row.movement_type === 'adjustment' ? (quantity > 0 ? 'Penyesuaian masuk' : 'Penyesuaian keluar') : 'Terpakai';
         const time = new Date(row.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'});
-        return `<tr><td>${time}</td><td><b>${row.material_name}</b></td><td><span class="badge ${incoming ? 'ready' : 'wait'}">${label}</span></td><td style="font-weight:750;color:${incoming ? '#078354' : '#b54708'}">${incoming ? '+' : '−'}${format(row.quantity)} ${row.unit}</td><td class="muted">${row.note || '—'}</td></tr>`;
+        return `<tr><td>${time}</td><td><b>${row.material_name}</b></td><td><span class="badge ${incoming ? 'ready' : 'wait'}">${label}</span></td><td style="font-weight:750;color:${incoming ? '#078354' : '#b54708'}">${incoming ? '+' : '−'}${format(Math.abs(quantity))} ${row.unit}</td><td class="muted">${row.note || '—'}</td></tr>`;
       }).join('');
       history.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><h2 style="margin:0">Riwayat Stok</h2><p class="muted" style="margin:4px 0 0">Stok masuk, pemakaian resep, dan pengembalian transaksi.</p></div><button id="reloadStockHistory" class="btn ghost" type="button">Muat ulang</button></div><div style="overflow:auto"><table style="min-width:720px;margin-top:10px"><tr><th>Waktu</th><th>Bahan</th><th>Aktivitas</th><th>Perubahan</th><th>Keterangan</th></tr>${rows || '<tr><td colspan="5" class="muted" style="text-align:center;padding:18px">Belum ada riwayat stok.</td></tr>'}</table></div>`;
       document.getElementById('reloadStockHistory')?.addEventListener('click', async () => {

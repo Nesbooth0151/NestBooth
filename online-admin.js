@@ -21,6 +21,23 @@
     finally { if (button) { button.disabled = false; button.textContent = label; } }
   };
 
+  let session = null;
+  try { session = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null'); } catch (_) {}
+  if (session?.role === 'admin') {
+    const noteField = document.createElement('label');
+    noteField.className = 'field';
+    noteField.innerHTML = 'Alasan pengurangan<input id="stockAdjustmentNote" maxlength="160" placeholder="Contoh: bahan rusak / terpakai" autocomplete="off">';
+    stockQty.closest('label').insertAdjacentElement('afterend', noteField);
+
+    const adjustButton = document.createElement('button');
+    adjustButton.type = 'button';
+    adjustButton.id = 'adjustStockButton';
+    adjustButton.className = 'btn ghost';
+    adjustButton.textContent = '− Kurangi Stok';
+    adjustButton.style.cssText = 'border-color:#efb7bb;color:#c93239';
+    stockForm.appendChild(adjustButton);
+  }
+
   // Tangkap form sebelum handler localStorage lama dijalankan.
   document.addEventListener('submit', event => {
     const form = event.target;
@@ -75,6 +92,21 @@
       return busy(button, async () => {
         await request(`/api/materials?id=${encodeURIComponent(material.id)}`, {method: 'DELETE'});
         await reload(); show('Bahan dihapus dari stok pusat.');
+      });
+    }
+    if (button.id === 'adjustStockButton') {
+      event.preventDefault(); event.stopImmediatePropagation();
+      const material = state().materials[Number(stockProduct.value)];
+      const amount = Number(stockQty.value);
+      const note = String(document.getElementById('stockAdjustmentNote')?.value || '').trim();
+      if (!material) return show('Pilih bahan baku terlebih dahulu.');
+      if (!Number.isFinite(amount) || amount <= 0) return show('Jumlah pengurangan stok tidak valid.');
+      if (note.length < 3) return show('Isi alasan pengurangan stok minimal 3 karakter.');
+      if (!confirm(`Kurangi ${material.name} sebanyak ${amount} ${material.unit}?`)) return;
+      return busy(button, async () => {
+        await request('/api/materials/adjust-stock', {method: 'POST', body: JSON.stringify({material_id: material.id, quantity: -amount, note})});
+        document.getElementById('stockAdjustmentNote').value = '';
+        await reload(); show(`Stok ${material.name} dikurangi ${amount} ${material.unit}.`);
       });
     }
     if (text === 'Hapus Menu') {

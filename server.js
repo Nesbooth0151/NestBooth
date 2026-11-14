@@ -77,7 +77,7 @@ function apiRoles(pathname, method) {
   // manajemen pengguna tetap khusus Admin.
   if (pathname === '/api/reports/sales') return ['admin', 'kasir'];
   if (pathname === '/api/reports/profit' || pathname === '/api/users') return ['admin'];
-  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/restock' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
+  if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/restock' || pathname === '/api/materials/adjust-stock' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
   if (pathname === '/api/shifts' || pathname === '/api/shifts/detail') return ['admin', 'kasir'];
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
   if (pathname === '/api/cash-expenses') return ['admin', 'kasir'];
@@ -474,6 +474,20 @@ async function restockMaterial(payload) {
   return rows;
 }
 
+async function adjustMaterialStock(payload) {
+  const material_id = String(payload.material_id || '');
+  const quantity = Number(payload.quantity);
+  const note = String(payload.note || '').trim().slice(0, 160);
+  if (!/^[0-9a-f-]{36}$/i.test(material_id) || !Number.isFinite(quantity) || quantity >= 0) {
+    throw new Error('Jumlah pengurangan stok tidak valid');
+  }
+  if (note.length < 3) throw new Error('Alasan pengurangan stok minimal 3 karakter');
+  const rows = await db('rpc/adjust_material_stock', {
+    method: 'POST', body: JSON.stringify({p_material_id: material_id, p_quantity: quantity, p_note: note})
+  });
+  return rows;
+}
+
 async function stockHistory(url) {
   const limit = Math.min(300, Math.max(1, Number(url.searchParams.get('limit')) || 100));
   return db('rpc/get_stock_history', {method: 'POST', body: JSON.stringify({p_limit: limit})});
@@ -608,6 +622,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials' && req.method === 'DELETE') return send(res, 200, await db(`materials?id=eq.${encodeURIComponent(url.searchParams.get('id') || '')}`, {method: 'DELETE'}));
     if (url.pathname === '/api/materials/cost' && req.method === 'PUT') return send(res, 200, await saveMaterialCost(await readBody(req)));
     if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
+    if (url.pathname === '/api/materials/adjust-stock' && req.method === 'POST') return send(res, 200, await adjustMaterialStock(await readBody(req)));
     if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
     if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
     if (url.pathname === '/api/shifts/detail' && req.method === 'GET') return send(res, 200, await shiftDetail(url));
