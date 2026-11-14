@@ -9,8 +9,6 @@
     return data;
   };
   const state = () => window.nesboothCloudState || {products: [], materials: []};
-  let currentSession = null;
-  try { currentSession = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null'); } catch (_) {}
   const reload = async () => {
     await window.nesboothCloudReload?.();
     if (typeof renderMenuEditor === 'function') renderMenuEditor();
@@ -22,18 +20,6 @@
     try { await action(); } catch (error) { show(error.message || 'Perubahan tidak dapat disimpan'); }
     finally { if (button) { button.disabled = false; button.textContent = label; } }
   };
-
-  // Aksi ini sengaja berada di halaman stok dan hanya bisa dipanggil lewat
-  // endpoint Admin. Resep serta daftar bahan tidak ikut dihapus.
-  if (currentSession?.role === 'admin') {
-    const resetStockButton = document.createElement('button');
-    resetStockButton.type = 'button';
-    resetStockButton.id = 'resetAllStockButton';
-    resetStockButton.className = 'btn ghost';
-    resetStockButton.textContent = 'Reset Semua Stok ke 0';
-    resetStockButton.style.cssText = 'border-color:#efb7bb;color:#c93239';
-    stockForm.appendChild(resetStockButton);
-  }
 
   // Tangkap form sebelum handler localStorage lama dijalankan.
   document.addEventListener('submit', event => {
@@ -89,14 +75,6 @@
       return busy(button, async () => {
         await request(`/api/materials?id=${encodeURIComponent(material.id)}`, {method: 'DELETE'});
         await reload(); show('Bahan dihapus dari stok pusat.');
-      });
-    }
-    if (button.id === 'resetAllStockButton') {
-      event.preventDefault(); event.stopImmediatePropagation();
-      if (!confirm('Atur SEMUA stok bahan menjadi 0? Daftar bahan dan resep tidak akan dihapus.')) return;
-      return busy(button, async () => {
-        const result = await request('/api/materials/reset-stock', {method: 'POST', body: '{}'});
-        await reload(); show(`${result.updated || 0} stok bahan sudah diatur ke 0.`);
       });
     }
     if (text === 'Hapus Menu') {
