@@ -30,6 +30,26 @@
       .queue-actions { flex-wrap: wrap; }
       .queue-actions .btn { flex: 1 1 170px; text-align: center; }
       .queue-item { min-width: 0; }
+
+      /* Tablet: halaman stok memakai susunan dua kolom yang mudah disentuh.
+         Jangan mempertahankan enam kolom desktop pada layar tablet. */
+      #produk .inventory-page { max-width: 920px; margin-inline: auto; gap: 16px; }
+      #produk .inventory-heading,
+      #produk .recipe-manager-head { padding: 18px 20px; }
+      #produk .inventory-heading { display: block; }
+      #produk .inventory-note,
+      #produk .recipe-manager-head > span { display: block; max-width: none; margin-top: 12px; }
+      #produk .inventory-form,
+      #produk .menu-form,
+      #produk .recipe-manager-form { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 16px 18px; padding: 14px; }
+      #produk .inventory-form .btn,
+      #produk .recipe-manager-form .btn { width: 100%; }
+      #produk .inventory-table-wrap { margin: 0 18px 18px; }
+      #produk #stockAlerts { margin: 0 18px 16px !important; overflow-x: auto; }
+      #produk #stockAlerts table { min-width: 560px; }
+      #produk .recipe-manager-body { padding: 16px 18px 20px; }
+      #produk .recipe-variant-card { overflow-x: auto; }
+      #produk .recipe-variant-card table { min-width: 560px; }
     }
 
     @media (max-width: 900px) {
@@ -91,6 +111,7 @@
       .inventory-heading h2 { font-size: 17px; }
       .inventory-note { font-size: 12px; }
       .inventory-form { padding: 13px; }
+      #produk #stockAlerts { margin-inline: 14px !important; }
       .responsive-table { margin-inline: -2px; }
       .session-user { max-width: calc(100vw - 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .pos-login { padding: 14px; }
