@@ -35,10 +35,9 @@
     return btoa(binary);
   }
   function rawBtReceiptText(data) {
-    // Perintah ESC/POS dasar yang didukung printer thermal 58 mm: reset,
-    // rata tengah/kiri, dan tebal. Isi tetap teks monospasi 32 kolom.
+    // Pertahankan tata letak teks monospasi yang paling stabil pada RawBT.
+    // Hanya judul dan total yang dibuat tebal dengan ESC/POS.
     const esc = '\x1B';
-    const align = value => esc + 'a' + String.fromCharCode(value);
     const bold = enabled => esc + 'E' + String.fromCharCode(enabled ? 1 : 0);
     const divider = '-'.repeat(32);
     const itemLines = data.items.flatMap(item => {
@@ -48,20 +47,21 @@
       const extra = parts.flatMap(part => part.split(' • ').map(option => `  ${receiptText(option)}`));
       return [receiptRow(`${item.qty} ${name}`, price), ...extra];
     });
+    const meta = (label, value) => `${label.padEnd(8)}: ${receiptText(value)}`;
     return [
-      esc + '@', align(1), bold(true), 'NESBOOTH\n', bold(false),
-      'STRUK PEMBAYARAN\n',
-      'Jl. Karya No. A3, Karang Berombak\n',
-      'Medan, Sumatera Utara 20117\n',
-      align(0), divider, '\n',
-      `ANTRIAN : ${receiptText(data.queueNumber)}\n`,
-      `RCPT#    : ${receiptText(data.receiptNumber)}\n`,
-      `TANGGAL  : ${receiptText(data.date).replace(',', '')}\n`,
-      `BAYAR    : ${receiptText(data.method)}\n`,
+      esc + '@', bold(true), receiptCenter('NESBOOTH'), '\n', bold(false),
+      receiptCenter('STRUK PEMBAYARAN'), '\n',
+      receiptCenter('Jl. Karya No.A3, Karang Berombak'), '\n',
+      receiptCenter('Medan, Sumatera Utara 20117'), '\n',
+      divider, '\n',
+      meta('ANTRIAN', data.queueNumber), '\n',
+      meta('RCPT#', data.receiptNumber), '\n',
+      meta('TANGGAL', String(data.date).replace(',', '')), '\n',
+      meta('BAYAR', data.method), '\n',
       divider, '\n',
       ...itemLines.map(line => `${line}\n`),
       divider, '\n', bold(true), receiptRow('TOTAL', rupiah(data.total)), '\n', bold(false),
-      align(1), '\nTerima kasih\nSampai jumpa kembali\n', align(0), '\n\n\n'
+      '\n', receiptCenter('Terima kasih'), '\n', receiptCenter('Sampai jumpa kembali'), '\n\n\n'
     ].join('');
   }
   function printViaRawBt(data) {
