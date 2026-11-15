@@ -39,6 +39,11 @@
     // Hanya judul dan total yang dibuat tebal dengan ESC/POS.
     const esc = '\x1B';
     const bold = enabled => esc + 'E' + String.fromCharCode(enabled ? 1 : 0);
+    // ESC p m t1 t2: pulsa pembuka cash drawer pada pin RJ11 printer.
+    // Hanya tunai yang membuka laci; QRIS tidak memerlukan uang kas.
+    const drawerPulse = String(data.method || '').toLowerCase() === 'tunai'
+      ? esc + 'p' + '\x00' + '\x19' + '\xFA'
+      : '';
     const divider = '-'.repeat(32);
     const itemLines = data.items.flatMap(item => {
       const parts = String(item.name).split(' — ');
@@ -49,7 +54,7 @@
     });
     const meta = (label, value) => `${label.padEnd(8)}: ${receiptText(value)}`;
     return [
-      esc + '@', bold(true), receiptCenter('NESBOOTH'), '\n', bold(false),
+      esc + '@', drawerPulse, bold(true), receiptCenter('NESBOOTH'), '\n', bold(false),
       receiptCenter('STRUK PEMBAYARAN'), '\n',
       receiptCenter('Jl. Karya No.A3, Karang Berombak'), '\n',
       receiptCenter('Medan, Sumatera Utara 20117'), '\n',

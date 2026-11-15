@@ -37,13 +37,16 @@
   }
   function rawReceipt(data) {
     const width = 32, line = '-'.repeat(width);
+    // ESC p 0 25 250 membuka cash drawer yang tersambung ke port RJ11 printer.
+    // Laci hanya dibuka untuk pembayaran tunai.
+    const drawerPulse = String(data.method || '').toLowerCase() === 'tunai' ? '\x1B\x70\x00\x19\xFA' : '';
     const items = (data.items || []).flatMap(item => {
       const name = clean(`${item.qty} ${String(item.name || '').split(' — ')[0]}`);
       const price = money(Number(item.price || 0) * Number(item.qty || 0));
       if (name.length <= width - price.length - 1) return [pad(name, price, width)];
       return [name.slice(0, width), pad('', price, width)];
     });
-    return '\x1B\x40' + '\x1B\x61\x01' + '\x1B\x21\x10' + 'NESBOOTH\n' + '\x1B\x21\x00' +
+    return '\x1B\x40' + drawerPulse + '\x1B\x61\x01' + '\x1B\x21\x10' + 'NESBOOTH\n' + '\x1B\x21\x00' +
       'STRUK PEMBAYARAN\nJl. Karya No.A3, Karang Berombak\nMedan, Sumatera Utara 20117\n' +
       line + '\n' + '\x1B\x61\x00' +
       `ANTRIAN : ${clean(data.queueNumber)}\nRCPT#    : ${clean(data.receiptNumber)}\nTANGGAL  : ${clean(data.date)}\nBAYAR    : ${clean(data.method)}\n` +
