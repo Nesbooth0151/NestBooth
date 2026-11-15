@@ -82,7 +82,13 @@
   };
 
   const refreshAll = () => { refreshAlerts(); loadHistory(); };
-  window.addEventListener('nesbooth-cloud-updated', () => setTimeout(refreshAll, 0));
+  // Sinkronisasi cloud berjalan berkala. Jangan merender ulang panel ketika
+  // Admin masih mengetik nilai stok minimum atau memilih bahan di panel ini.
+  const refreshWhenIdle = () => {
+    if (box.contains(document.activeElement)) return;
+    refreshAll();
+  };
+  window.addEventListener('nesbooth-cloud-updated', () => setTimeout(refreshWhenIdle, 0));
   const oldRefresh = window.refreshStockAdmin;
   window.refreshStockAdmin = function () { oldRefresh(); refreshAlerts(); };
   refreshAll();
