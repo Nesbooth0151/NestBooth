@@ -52,6 +52,5 @@
 
   document.getElementById('applyOnlineReport')?.addEventListener('click', () => setTimeout(load, 0));
   document.querySelector('[data-page="laporan"]')?.addEventListener('click', load);
-  window.addEventListener('nesbooth-cloud-updated', load);
   load();
 })();
