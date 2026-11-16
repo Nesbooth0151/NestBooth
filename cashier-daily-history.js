@@ -7,11 +7,6 @@
   const session = () => { try { return JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null'); } catch { return null; } };
   const money = value => 'Rp' + Number(value || 0).toLocaleString('id-ID');
   const safe = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-  const today = () => {
-    const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jakarta', year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(new Date());
-    const pick = type => parts.find(part => part.type === type)?.value;
-    return `${pick('year')}-${pick('month')}-${pick('day')}`;
-  };
   const timestamp = value => new Date(value).toLocaleString('id-ID', {timeZone:'Asia/Jakarta', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
   let started = false;
 
@@ -21,7 +16,7 @@
   `;
   document.head.appendChild(style);
 
-  function render(sales) {
+  function render(sales, shift) {
     const paid = sales.filter(sale => sale.payment_status === 'paid');
     const total = paid.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
     const transfer = paid.filter(sale => sale.payment_method === 'Transfer');
@@ -35,7 +30,7 @@
       const state = sale.payment_status === 'paid' ? 'Lunas' : sale.payment_status;
       return `<details class="daily-sale"><summary><span class="daily-sale-meta"><b>${safe(sale.receipt_number || '—')}</b><small>${timestamp(sale.created_at)}</small></span><span class="daily-sale-method">${safe(sale.payment_method || '—')} · ${safe(state)}</span><b>${money(sale.total)}</b></summary><div class="daily-sale-items">${itemRows}</div></details>`;
     };
-    page.innerHTML = `<div class="card section cashier-history"><div class="cashier-history-head"><div><h2>Riwayat Transaksi Hari Ini</h2><p class="muted">Tekan setiap bon untuk melihat item yang terjual.</p></div><button id="reloadCashierDailyHistory" class="btn ghost" type="button">↻ Muat ulang</button></div><div class="cashier-summary"><div class="card"><div class="label">Transaksi Lunas</div><div class="value">${paid.length}</div></div><div class="card"><div class="label">Total Penjualan</div><div class="value">${money(total)}</div></div><div class="card"><div class="label">Transfer Manual</div><div class="value">${transfer.length}</div></div></div><div class="daily-sale-list">${sales.length ? sales.map(receipt).join('') : '<div class="daily-sale-empty">Belum ada transaksi hari ini.</div>'}</div></div>`;
+    page.innerHTML = `<div class="card section cashier-history"><div class="cashier-history-head"><div><h2>Riwayat Transaksi Shift Aktif</h2><p class="muted">Kasir: <b>${safe(shift.cashier_name || '—')}</b> · Dibuka ${timestamp(shift.opened_at)}. Tekan setiap bon untuk melihat item yang terjual.</p></div><button id="reloadCashierDailyHistory" class="btn ghost" type="button">↻ Muat ulang</button></div><div class="cashier-summary"><div class="card"><div class="label">Transaksi Lunas</div><div class="value">${paid.length}</div></div><div class="card"><div class="label">Total Penjualan Shift</div><div class="value">${money(total)}</div></div><div class="card"><div class="label">Transfer Manual</div><div class="value">${transfer.length}</div></div></div><div class="daily-sale-list">${sales.length ? sales.map(receipt).join('') : '<div class="daily-sale-empty">Belum ada transaksi pada shift ini.</div>'}</div></div>`;
     page.querySelector('#reloadCashierDailyHistory').onclick = load;
   }
 
@@ -43,13 +38,21 @@
     const button = page.querySelector('#reloadCashierDailyHistory');
     if (button) { button.disabled = true; button.textContent = 'Memuat…'; }
     try {
-      const date = today();
-      const response = await fetch(`/api/reports/sales?from=${date}&to=${date}`);
+      const shiftResponse = await fetch('/api/shifts');
+      const shiftData = await shiftResponse.json().catch(() => ({}));
+      if (!shiftResponse.ok) throw new Error(shiftData.error || 'Status shift tidak dapat dimuat');
+      const shift = shiftData.openShift;
+      if (!shift?.id) {
+        page.innerHTML = `<div class="card section cashier-history"><h2>Riwayat Transaksi Shift</h2><p class="muted">Belum ada shift aktif. Buka shift terlebih dahulu untuk melihat transaksi shift ini.</p><button id="reloadCashierDailyHistory" class="btn ghost" type="button">Muat ulang</button></div>`;
+        page.querySelector('#reloadCashierDailyHistory').onclick = load;
+        return;
+      }
+      const response = await fetch(`/api/shifts/detail?id=${encodeURIComponent(shift.id)}`);
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Riwayat transaksi tidak dapat dimuat');
-      render(Array.isArray(data.sales) ? data.sales : []);
+      if (!response.ok) throw new Error(data.error || 'Riwayat transaksi shift tidak dapat dimuat');
+      render(Array.isArray(data.sales) ? data.sales : [], data.shift || shift);
     } catch (error) {
-      page.innerHTML = `<div class="card section cashier-history"><h2>Riwayat Transaksi Hari Ini</h2><p class="muted">${safe(error.message || 'Riwayat transaksi tidak dapat dimuat.')}</p><button id="reloadCashierDailyHistory" class="btn ghost" type="button">Coba lagi</button></div>`;
+      page.innerHTML = `<div class="card section cashier-history"><h2>Riwayat Transaksi Shift</h2><p class="muted">${safe(error.message || 'Riwayat transaksi tidak dapat dimuat.')}</p><button id="reloadCashierDailyHistory" class="btn ghost" type="button">Coba lagi</button></div>`;
       page.querySelector('#reloadCashierDailyHistory').onclick = load;
     }
   }
