@@ -506,9 +506,10 @@ async function shiftStatus() {
     ]);
     const cash_sales = sales.filter(sale => sale.payment_method === 'Tunai').reduce((total, sale) => total + Number(sale.total || 0), 0);
     const qris_sales = sales.filter(sale => sale.payment_method === 'QRIS').reduce((total, sale) => total + Number(sale.total || 0), 0);
+    const transfer_sales = sales.filter(sale => sale.payment_method === 'Transfer').reduce((total, sale) => total + Number(sale.total || 0), 0);
     const cash_expenses = expenses.reduce((total, expense) => total + Number(expense.amount || 0), 0);
     const materialMap = new Map(materials.map(material => [material.id, material]));
-    summary = {...open, cash_sales, qris_sales, cash_expenses, expenses: expenses.map(expense => ({...expense, material: materialMap.get(expense.material_id) || null})), expected_cash: Number(open.opening_cash) + cash_sales - cash_expenses, transaction_count: sales.length};
+    summary = {...open, cash_sales, qris_sales, transfer_sales, cash_expenses, expenses: expenses.map(expense => ({...expense, material: materialMap.get(expense.material_id) || null})), expected_cash: Number(open.opening_cash) + cash_sales - cash_expenses, transaction_count: sales.length};
   }
   const recent = await db('cashier_shifts?status=eq.closed&select=*&order=closed_at.desc&limit=12');
   return {openShift: summary, recent};

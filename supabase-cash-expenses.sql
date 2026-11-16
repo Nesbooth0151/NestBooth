@@ -11,6 +11,7 @@ create table if not exists public.cash_expenses (
 );
 create index if not exists cash_expenses_shift_id_idx on public.cash_expenses(shift_id, created_at desc);
 alter table public.cashier_shifts add column if not exists cash_expenses integer not null default 0;
+alter table public.cashier_shifts add column if not exists transfer_sales integer not null default 0;
 alter table public.cash_expenses enable row level security;
 revoke all on public.cash_expenses from public, anon, authenticated;
 grant select, insert on public.cash_expenses to service_role;
@@ -44,18 +45,20 @@ create or replace function public.close_pos_shift(p_shift_id uuid, p_closed_by t
 returns jsonb
 language plpgsql security definer set search_path = public
 as $$
-declare v_shift public.cashier_shifts; v_cash integer; v_qris integer; v_expenses integer; v_expected integer;
+declare v_shift public.cashier_shifts; v_cash integer; v_qris integer; v_transfer integer; v_expenses integer; v_expected integer;
 begin
   if p_counted_cash is null or p_counted_cash < 0 then raise exception 'Kas akhir tidak valid'; end if;
   select * into v_shift from public.cashier_shifts where id = p_shift_id for update;
   if not found or v_shift.status <> 'open' then raise exception 'Shift aktif tidak ditemukan'; end if;
-  select coalesce(sum(total) filter (where payment_method = 'Tunai'), 0), coalesce(sum(total) filter (where payment_method = 'QRIS'), 0)
-  into v_cash, v_qris from public.sales where shift_id = p_shift_id and payment_status = 'paid';
+  select coalesce(sum(total) filter (where payment_method = 'Tunai'), 0),
+         coalesce(sum(total) filter (where payment_method = 'QRIS'), 0),
+         coalesce(sum(total) filter (where payment_method = 'Transfer'), 0)
+  into v_cash, v_qris, v_transfer from public.sales where shift_id = p_shift_id and payment_status = 'paid';
   select coalesce(sum(amount), 0) into v_expenses from public.cash_expenses where shift_id = p_shift_id;
   v_expected := v_shift.opening_cash + v_cash - v_expenses;
   update public.cashier_shifts set status = 'closed', closed_at = now(),
     closed_by = left(trim(coalesce(p_closed_by, v_shift.cashier_name)), 100), counted_cash = p_counted_cash,
-    cash_sales = v_cash, qris_sales = v_qris, cash_expenses = v_expenses,
+    cash_sales = v_cash, qris_sales = v_qris, transfer_sales = v_transfer, cash_expenses = v_expenses,
     expected_cash = v_expected, cash_difference = p_counted_cash - v_expected, notes = left(coalesce(p_notes, ''), 300)
   where id = p_shift_id returning * into v_shift;
   return to_jsonb(v_shift);

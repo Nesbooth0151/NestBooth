@@ -11,6 +11,7 @@ create table if not exists public.cashier_shifts (
   counted_cash integer,
   cash_sales integer not null default 0,
   qris_sales integer not null default 0,
+  transfer_sales integer not null default 0,
   expected_cash integer,
   cash_difference integer,
   notes text not null default ''
@@ -64,19 +65,21 @@ declare
   v_shift public.cashier_shifts;
   v_cash integer;
   v_qris integer;
+  v_transfer integer;
   v_expected integer;
 begin
   if p_counted_cash is null or p_counted_cash < 0 then raise exception 'Kas akhir tidak valid'; end if;
   select * into v_shift from public.cashier_shifts where id = p_shift_id for update;
   if not found or v_shift.status <> 'open' then raise exception 'Shift aktif tidak ditemukan'; end if;
   select coalesce(sum(total) filter (where payment_method = 'Tunai'), 0),
-         coalesce(sum(total) filter (where payment_method = 'QRIS'), 0)
-  into v_cash, v_qris
+         coalesce(sum(total) filter (where payment_method = 'QRIS'), 0),
+         coalesce(sum(total) filter (where payment_method = 'Transfer'), 0)
+  into v_cash, v_qris, v_transfer
   from public.sales where shift_id = p_shift_id and payment_status = 'paid';
   v_expected := v_shift.opening_cash + v_cash;
   update public.cashier_shifts set
     status = 'closed', closed_at = now(), closed_by = left(trim(coalesce(p_closed_by, v_shift.cashier_name)), 100),
-    counted_cash = p_counted_cash, cash_sales = v_cash, qris_sales = v_qris,
+    counted_cash = p_counted_cash, cash_sales = v_cash, qris_sales = v_qris, transfer_sales = v_transfer,
     expected_cash = v_expected, cash_difference = p_counted_cash - v_expected,
     notes = left(coalesce(p_notes, ''), 300)
   where id = p_shift_id returning * into v_shift;

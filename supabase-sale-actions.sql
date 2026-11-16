@@ -26,7 +26,7 @@ begin
     update public.queue_items set status = 'Selesai' where sale_id = p_sale_id;
   elsif p_action = 'payment_method' then
     if v_sale.payment_status <> 'paid' then raise exception 'Hanya transaksi lunas yang dapat diubah'; end if;
-    if p_payment_method not in ('Tunai', 'QRIS') then raise exception 'Metode pembayaran tidak valid'; end if;
+    if p_payment_method not in ('Tunai', 'QRIS', 'Transfer') then raise exception 'Metode pembayaran tidak valid'; end if;
     update public.sales set payment_method = p_payment_method where id = p_sale_id returning * into v_sale;
   else
     raise exception 'Aksi transaksi tidak valid';
