@@ -40,9 +40,9 @@
     const paidSales = sales.filter(sale => sale.payment_status === 'paid');
     const total = paidSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
     const cash = paidSales.filter(sale => sale.payment_method === 'Tunai');
-    const qris = paidSales.filter(sale => sale.payment_method === 'QRIS');
     const totals = rows => rows.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
     const productCount = new Map();
+    const itemCount = paidSales.reduce((sum, sale) => sum + (sale.items || []).reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0), 0);
     paidSales.forEach(sale => (sale.items || []).forEach(item => {
       const name = String(item.name || '').split(' — ')[0];
       productCount.set(name, (productCount.get(name) || 0) + Number(item.qty || 0));
@@ -52,8 +52,7 @@
       <div class="card stat"><div class="label">Total Penjualan</div><div class="value">${money(total)}</div></div>
       <div class="card stat"><div class="label">Jumlah Transaksi Lunas</div><div class="value">${paidSales.length}</div></div>
       <div class="card stat"><div class="label">Tunai</div><div class="value">${money(totals(cash))}</div><div class="muted">${cash.length} transaksi</div></div>
-      <div class="card stat"><div class="label">QRIS</div><div class="value">${money(totals(qris))}</div><div class="muted">${qris.length} transaksi</div></div>
-      <div class="card stat"><div class="label">Rata-rata Transaksi</div><div class="value">${money(paidSales.length ? total / paidSales.length : 0)}</div></div>`;
+      <div class="card stat"><div class="label">Jumlah Item Terjual</div><div class="value">${itemCount.toLocaleString('id-ID')}</div><div class="muted">Total porsi pada periode ini</div></div>`;
     document.getElementById('onlineTopProducts').innerHTML = popular.length ? popular.map(([name, qty], index) => `<b>${index + 1}. ${safe(name)}</b> <span class="muted">— ${qty} terjual</span>`).join('<br>') : 'Belum ada produk terjual pada periode ini.';
     const statusText = status => ({paid: 'Lunas', cancelled: 'Dibatalkan', refunded: 'Refund'}[status] || status);
     const statusClass = status => status === 'paid' ? 'ready' : 'wait';

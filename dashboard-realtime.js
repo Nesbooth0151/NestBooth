@@ -48,15 +48,16 @@
     setCard(cards[3], top?.[0] || '—', top ? `${top[1]} terjual hari ini` : 'Belum ada penjualan hari ini');
     const reportCards = [...document.querySelectorAll('#laporan .dash-grid .stat')];
     if (reportCards.length >= 4) {
-      const qrisTotal = todaySales.filter(sale => sale.payment_method === 'QRIS').reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const itemTotal = todaySales.reduce((sum, sale) => sum + (sale.items || []).reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0), 0);
+      const productTotal = count.size;
       reportCards[0].querySelector('.label').textContent = 'Penjualan Hari Ini';
       reportCards[0].querySelector('.value').textContent = money(todayTotal);
       reportCards[1].querySelector('.label').textContent = 'Total Transaksi Hari Ini';
       reportCards[1].querySelector('.value').textContent = todaySales.length;
-      reportCards[2].querySelector('.label').textContent = 'Rata-rata Transaksi Hari Ini';
-      reportCards[2].querySelector('.value').textContent = money(todaySales.length ? todayTotal / todaySales.length : 0);
-      reportCards[3].querySelector('.label').textContent = 'Pembayaran QRIS Hari Ini';
-      reportCards[3].querySelector('.value').textContent = `${todayTotal ? Math.round(qrisTotal / todayTotal * 100) : 0}%`;
+      reportCards[2].querySelector('.label').textContent = 'Jumlah Item Terjual Hari Ini';
+      reportCards[2].querySelector('.value').textContent = itemTotal.toLocaleString('id-ID');
+      reportCards[3].querySelector('.label').textContent = 'Jenis Produk Terjual Hari Ini';
+      reportCards[3].querySelector('.value').textContent = productTotal.toLocaleString('id-ID');
     }
     const bars = document.querySelector('#dashboard .bars'); if (!bars) return;
     const first = monday(now);
