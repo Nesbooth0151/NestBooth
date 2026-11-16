@@ -62,7 +62,7 @@
           const state = await api(`/api/midtrans/status?order_id=${encodeURIComponent(payment.orderId)}${query}`);
           if (state.status === 'paid' && state.queue) {
             setTimeout(loadCloudData, 0);
-            finish(null, {queueNumber: state.queue.queue_number, queueId: state.queue.id, receiptNumber: payment.receiptNumber, subtotal: payment.subtotal, tax: 0, total: payment.total, taxPercent: 0});
+            finish(null, {queueNumber: state.queue.queue_number, queueId: state.queue.id, receiptNumber: state.receiptNumber || payment.receiptNumber, subtotal: payment.subtotal, tax: 0, total: payment.total, taxPercent: 0});
           } else if (state.status === 'failed') finish(new Error('Pembayaran QRIS tidak berhasil atau telah dibatalkan'));
           else if (++attempts >= 180) finish(new Error('Status pembayaran masih menunggu. Jangan membuat tagihan QRIS kedua untuk pesanan ini.'));
         } catch (error) { if (++attempts >= 10) finish(error); }

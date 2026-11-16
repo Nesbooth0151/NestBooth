@@ -33,6 +33,14 @@ function jakartaDate() {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+function receiptNumberForQueue(queueDate, queueNumber) {
+  const match = String(queueDate || '').match(/^\d{4}-(\d{2})-(\d{2})$/);
+  const month = match?.[1] || '00';
+  const day = match?.[2] || '00';
+  const number = (String(queueNumber || '').replace(/\D/g, '') || '0').padStart(3, '0');
+  return `NB${day}${month}${number}`;
+}
+
 function send(res, status, body, headers = {}) {
   res.writeHead(status, {'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers});
   res.end(JSON.stringify(body));
@@ -192,9 +200,11 @@ async function createSale(payload) {
 async function prepareSale(payload, methodOverride) {
   const items = Array.isArray(payload.items) ? payload.items : [];
   if (!items.length) throw new Error('Pesanan kosong');
-  const [settingsRows, productRows] = await Promise.all([
+  const jakartaToday = jakartaDate();
+  const [settingsRows, productRows, queues] = await Promise.all([
     db('store_settings?select=*&id=eq.1'),
-    db('products?select=id,name,price&is_active=eq.true')
+    db('products?select=id,name,price&is_active=eq.true'),
+    db(`queue_items?queue_date=eq.${encodeURIComponent(jakartaToday)}&select=id`)
   ]);
   const products = new Map(productRows.map(product => [product.name, product]));
   const safeItems = items.map(item => {
@@ -211,10 +221,10 @@ async function prepareSale(payload, methodOverride) {
   // Awalan A lama dihilangkan agar antrean tampil 001, 002, dan seterusnya.
   const storedPrefix = String(settingsRows[0]?.queue_prefix ?? '').trim().toUpperCase();
   const prefix = storedPrefix === 'A' ? '' : storedPrefix;
-  const jakartaToday = jakartaDate();
+  const receiptNumber = receiptNumberForQueue(jakartaToday, String((queues || []).length + 1).padStart(3, '0'));
   return {
     items: safeItems, subtotal, total, prefix, queueDate: jakartaToday,
-    receiptNumber: `NB${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`,
+    receiptNumber,
     // Transfer dicatat manual seperti tunai: kasir memverifikasi bukti transfer
     // sebelum transaksi dibuat, tanpa membuat tagihan Midtrans.
     method: methodOverride || (['QRIS', 'Transfer'].includes(payload.method) ? payload.method : 'Tunai')
@@ -249,6 +259,9 @@ async function midtransGetStatus(orderId) {
 async function createMidtransPayment(payload) {
   ensureMidtransConfigured();
   const quote = await prepareSale(payload, 'QRIS');
+  // Nomor struk final baru diketahui ketika antrean dibuat setelah QRIS lunas.
+  // Nomor sementara ini hanya dipakai untuk menandai tagihan Midtrans.
+  quote.receiptNumber = `PENDING-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
   const orderId = `NB-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
   const pending = await db('payment_orders', {method: 'POST', body: JSON.stringify({
     order_id: orderId, status: 'pending', gross_amount: quote.total, items: quote.items,
@@ -300,6 +313,9 @@ async function applyMidtransStatus(payload) {
       p_queue_prefix: order.queue_prefix, p_queue_date: order.queue_date
     })});
     if (!created?.sale || !created?.queue) throw new Error('Transaksi QRIS tidak berhasil dibuat');
+    const receiptNumber = receiptNumberForQueue(order.queue_date, created.queue.queue_number);
+    const updatedSale = await db(`sales?id=eq.${encodeURIComponent(created.sale.id)}`, {method: 'PATCH', body: JSON.stringify({receipt_number: receiptNumber})});
+    if (!updatedSale?.[0]) throw new Error('Nomor struk QRIS tidak dapat diperbarui');
     await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}`, {method: 'PATCH', body: JSON.stringify({status: 'paid', sale_id: created.sale.id})});
   } catch (error) {
     await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}`, {method: 'PATCH', body: JSON.stringify({status: 'pending'})});
@@ -342,9 +358,13 @@ async function midtransPaymentStatus(url) {
     rows = await db(`payment_orders?order_id=eq.${encodeURIComponent(orderId)}&select=*`);
     order = rows[0];
   }
-  let queue = null;
-  if (order.sale_id) queue = (await db(`queue_items?sale_id=eq.${encodeURIComponent(order.sale_id)}&select=id,queue_number,item_count`))[0] || null;
-  return {status: order.status, midtransStatus: order.midtrans_status || 'pending', saleId: order.sale_id || null, queue};
+  let queue = null, receiptNumber = order.receipt_number;
+  if (order.sale_id) {
+    queue = (await db(`queue_items?sale_id=eq.${encodeURIComponent(order.sale_id)}&select=id,queue_number,item_count`))[0] || null;
+    const sale = (await db(`sales?id=eq.${encodeURIComponent(order.sale_id)}&select=receipt_number&limit=1`))[0];
+    if (sale?.receipt_number) receiptNumber = sale.receipt_number;
+  }
+  return {status: order.status, midtransStatus: order.midtrans_status || 'pending', saleId: order.sale_id || null, queue, receiptNumber};
 }
 
 async function updateQueueStatus(payload) {
