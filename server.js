@@ -76,7 +76,7 @@ function apiRoles(pathname, method) {
   // Riwayat transaksi merupakan menu Kasir, sedangkan laporan laba dan
   // manajemen pengguna tetap khusus Admin.
   if (pathname === '/api/reports/sales') return ['admin', 'kasir'];
-  if (pathname === '/api/reports/profit' || pathname === '/api/users') return ['admin'];
+  if (pathname === '/api/reports/profit' || pathname === '/api/reports/operational' || pathname === '/api/users') return ['admin'];
   if (pathname === '/api/settings' || pathname === '/api/products' || pathname === '/api/materials' || pathname === '/api/materials/restock' || pathname === '/api/materials/adjust-stock' || pathname === '/api/materials/cost' || pathname === '/api/stock/history' || pathname === '/api/recipes') return ['admin'];
   if (pathname === '/api/shifts' || pathname === '/api/shifts/detail') return ['admin', 'kasir'];
   if (pathname === '/api/shifts/open' || pathname === '/api/shifts/close') return ['admin', 'kasir'];
@@ -421,6 +421,36 @@ async function productProfitReport(from, to) {
   return db('rpc/product_profit_report', {method: 'POST', body: JSON.stringify({p_from: start, p_to: end})});
 }
 
+async function operationalProfitReport(from, to) {
+  const start = reportDate(from, 'Tanggal awal');
+  const end = reportDate(to, 'Tanggal akhir');
+  if (start > end) throw new Error('Rentang tanggal tidak valid');
+  const startTime = new Date(`${start}T00:00:00+07:00`).toISOString();
+  const nextDate = new Date(`${end}T00:00:00+07:00`); nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const endTime = nextDate.toISOString();
+  const [products, expenses, materials] = await Promise.all([
+    productProfitReport(start, end),
+    db(`cash_expenses?select=*&created_at=gte.${encodeURIComponent(startTime)}&created_at=lt.${encodeURIComponent(endTime)}&order=created_at.desc`),
+    db('materials?select=id,name,unit')
+  ]);
+  const materialMap = new Map((materials || []).map(material => [material.id, material]));
+  const normalized = value => String(value || '').trim().toLocaleLowerCase('id-ID');
+  const detail = (expenses || []).map(expense => {
+    const material = materialMap.get(expense.material_id) || null;
+    const category = normalized(expense.category);
+    const materialName = normalized(material?.name);
+    const isDeposit = category === 'setor';
+    const isWaterOrIce = materialName === 'air' || materialName === 'es';
+    // Pembelian bahan biasa sudah dihitung pada biaya resep. Air dan Es
+    // diperlakukan sebagai biaya operasional sesuai kebijakan toko.
+    const included = !isDeposit && (category !== 'belanja bahan baku' || isWaterOrIce);
+    return {...expense, material, included_in_operational: included, is_deposit: isDeposit};
+  });
+  const grossProfit = (products || []).reduce((sum, product) => sum + Number(product.gross_profit || 0), 0);
+  const operationalCost = detail.filter(expense => expense.included_in_operational).reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  return {gross_profit: grossProfit, operational_cost: operationalCost, net_profit: grossProfit - operationalCost, expenses: detail};
+}
+
 async function saveSettings(payload) {
   const store_name = cleanName(payload.store_name, 'Nama toko');
   const tax_percent = 0;
@@ -622,6 +652,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/operational-alerts' && req.method === 'GET') return send(res, 200, await operationalAlerts());
     if (url.pathname === '/api/reports/sales' && req.method === 'GET') return send(res, 200, {sales: await salesReport(url.searchParams.get('from'), url.searchParams.get('to'))});
     if (url.pathname === '/api/reports/profit' && req.method === 'GET') return send(res, 200, {products: await productProfitReport(url.searchParams.get('from'), url.searchParams.get('to'))});
+    if (url.pathname === '/api/reports/operational' && req.method === 'GET') return send(res, 200, await operationalProfitReport(url.searchParams.get('from'), url.searchParams.get('to')));
     if (url.pathname === '/api/sales' && req.method === 'POST') return send(res, 201, await createSale(await readBody(req)));
     if (url.pathname === '/api/sales/manage' && req.method === 'PUT') return send(res, 200, await manageSale(await readBody(req), session));
     if (url.pathname === '/api/settings' && req.method === 'PUT') return send(res, 200, await saveSettings(await readBody(req)));
