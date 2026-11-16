@@ -60,7 +60,14 @@
       const active = sale.payment_status === 'paid';
       const actions = active ? `<button class="btn ghost sale-action" data-action="payment_method" data-id="${safe(sale.id)}" type="button">Ubah bayar</button> <button class="btn ghost sale-action" data-action="cancel" data-id="${safe(sale.id)}" type="button">Batalkan</button> <button class="btn ghost sale-action" data-action="refund" data-id="${safe(sale.id)}" type="button">Refund</button>` : '—';
       const audit = sale.payment_status === 'cancelled' ? `<br><small class="muted">${safe(sale.cancelled_by || '')}: ${safe(sale.cancellation_reason || '')}</small>` : sale.payment_status === 'refunded' ? `<br><small class="muted">${safe(sale.refunded_by || '')}: ${safe(sale.refund_reason || '')}</small>` : '';
-      return `<tr><td>${safe(sale.receipt_number)}</td><td>${new Date(sale.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td><td>${(sale.items || []).reduce((sum, item) => sum + Number(item.qty || 0), 0)} produk</td><td>${safe(sale.payment_method)}</td><td>${money(sale.total)}</td><td><span class="badge ${statusClass(sale.payment_status)}">${statusText(sale.payment_status)}</span>${audit}</td><td style="white-space:nowrap">${actions}</td></tr>`;
+      const items = sale.items || [];
+      const itemRows = items.map(item => {
+        const parts = String(item.name || '').split(' — ');
+        const name = parts.shift();
+        return `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed #dce6ef"><span><b>${Number(item.qty || 0)}× ${safe(name)}</b>${parts.length ? `<small class="muted" style="display:block">${safe(parts.join(' — '))}</small>` : ''}</span><b>${money(Number(item.qty || 0) * Number(item.price || 0))}</b></div>`;
+      }).join('') || '<span class="muted">Rincian item tidak tersedia.</span>';
+      const itemCount = items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+      return `<tr><td>${safe(sale.receipt_number)}</td><td>${new Date(sale.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td><td><details><summary style="cursor:pointer;color:#1677ff;font-weight:700">${itemCount} item · Lihat rincian</summary><div style="margin-top:8px;min-width:210px">${itemRows}</div></details></td><td>${safe(sale.payment_method)}</td><td>${money(sale.total)}</td><td><span class="badge ${statusClass(sale.payment_status)}">${statusText(sale.payment_status)}</span>${audit}</td><td style="white-space:nowrap">${actions}</td></tr>`;
     }).join('') : '<tr><td colspan="7" style="text-align:center;color:#718096;padding:30px">Belum ada transaksi pada periode ini.</td></tr>';
   }
 
