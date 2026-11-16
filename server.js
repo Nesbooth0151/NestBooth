@@ -215,7 +215,9 @@ async function prepareSale(payload, methodOverride) {
   return {
     items: safeItems, subtotal, total, prefix, queueDate: jakartaToday,
     receiptNumber: `NB${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`,
-    method: methodOverride || (payload.method === 'QRIS' ? 'QRIS' : 'Tunai')
+    // Transfer dicatat manual seperti tunai: kasir memverifikasi bukti transfer
+    // sebelum transaksi dibuat, tanpa membuat tagihan Midtrans.
+    method: methodOverride || (['QRIS', 'Transfer'].includes(payload.method) ? payload.method : 'Tunai')
   };
 }
 

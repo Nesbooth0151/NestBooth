@@ -10,6 +10,10 @@
   `;
   const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
   document.querySelectorAll('.method[data-method="Kartu"],.method[data-method="E-Wallet"]').forEach(button => button.remove());
+  const transferManualNote = document.getElementById('transferManualNote');
+  document.querySelectorAll('.method').forEach(button => button.addEventListener('click', () => {
+    if (transferManualNote) transferManualNote.style.display = button.dataset.method === 'Transfer' ? 'block' : 'none';
+  }));
   const queueNameStyle = document.createElement('style'); queueNameStyle.textContent = '.queue-details b,#nowName{display:none!important}'; document.head.appendChild(queueNameStyle);
   const rupiah = value => 'Rp' + Number(value || 0).toLocaleString('id-ID');
   const receiptText = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E\n]/g, '');
