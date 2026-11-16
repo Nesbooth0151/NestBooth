@@ -23,6 +23,14 @@
   host.appendChild(history);
 
   const format = value => Number(value || 0).toLocaleString('id-ID', {maximumFractionDigits: 2});
+  const dateKey = value => {
+    const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jakarta', year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(value);
+    const part = type => parts.find(item => item.type === type)?.value;
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  };
+  const today = dateKey(new Date());
+  const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const earliestHistoryDate = dateKey(sixMonthsAgo);
   const state = () => window.nesboothCloudState || {materials: []};
   const threshold = material => Number(material.min_stock ?? material.min ?? 0);
   const materialStock = material => Number(material.stock || 0);
@@ -61,8 +69,14 @@
   };
 
   const loadHistory = async () => {
+    const from = history.querySelector('#stockHistoryFrom')?.value || earliestHistoryDate;
+    const to = history.querySelector('#stockHistoryTo')?.value || today;
+    if (!from || !to || from > to || from < earliestHistoryDate || to > today) {
+      show('Pilih rentang tanggal maksimal enam bulan terakhir.');
+      return;
+    }
     try {
-      const response = await fetch('/api/stock/history?limit=100', {headers: {'Content-Type': 'application/json'}});
+      const response = await fetch(`/api/stock/history?limit=300&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {headers: {'Content-Type': 'application/json'}});
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Riwayat stok tidak dapat dimuat');
       const rows = (data.movements || []).map(row => {
@@ -72,7 +86,8 @@
         const time = new Date(row.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'});
         return `<tr><td>${time}</td><td><b>${row.material_name}</b></td><td><span class="badge ${incoming ? 'ready' : 'wait'}">${label}</span></td><td style="font-weight:750;color:${incoming ? '#078354' : '#b54708'}">${incoming ? '+' : '−'}${format(Math.abs(quantity))} ${row.unit}</td><td class="muted">${row.note || '—'}</td></tr>`;
       }).join('');
-      history.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><h2 style="margin:0">Riwayat Stok</h2><p class="muted" style="margin:4px 0 0">Stok masuk, pemakaian resep, dan pengembalian transaksi.</p></div><button id="reloadStockHistory" class="btn ghost" type="button">Muat ulang</button></div><div style="overflow:auto"><table style="min-width:720px;margin-top:10px"><tr><th>Waktu</th><th>Bahan</th><th>Aktivitas</th><th>Perubahan</th><th>Keterangan</th></tr>${rows || '<tr><td colspan="5" class="muted" style="text-align:center;padding:18px">Belum ada riwayat stok.</td></tr>'}</table></div>`;
+      history.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">Riwayat Stok</h2><p class="muted" style="margin:4px 0 0">Stok masuk, pemakaian resep, dan pengembalian transaksi hingga enam bulan terakhir.</p></div><button id="reloadStockHistory" class="btn ghost" type="button">Muat ulang</button></div><div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:14px"><label class="field">Dari tanggal<input id="stockHistoryFrom" type="date" min="${earliestHistoryDate}" max="${today}" value="${from}"></label><label class="field">Sampai tanggal<input id="stockHistoryTo" type="date" min="${earliestHistoryDate}" max="${today}" value="${to}"></label><button id="applyStockHistory" class="btn" type="button">Tampilkan</button></div><div style="overflow:auto"><table style="min-width:720px;margin-top:14px"><tr><th>Waktu</th><th>Bahan</th><th>Aktivitas</th><th>Perubahan</th><th>Keterangan</th></tr>${rows || '<tr><td colspan="5" class="muted" style="text-align:center;padding:18px">Belum ada riwayat stok pada periode ini.</td></tr>'}</table></div>`;
+      document.getElementById('applyStockHistory')?.addEventListener('click', loadHistory);
       document.getElementById('reloadStockHistory')?.addEventListener('click', async () => {
         await window.nesboothCloudReload?.(); refreshAlerts(); loadHistory();
       });
@@ -85,7 +100,7 @@
   // Sinkronisasi cloud berjalan berkala. Jangan merender ulang panel ketika
   // Admin masih mengetik nilai stok minimum atau memilih bahan di panel ini.
   const refreshWhenIdle = () => {
-    if (box.contains(document.activeElement)) return;
+    if (box.contains(document.activeElement) || history.contains(document.activeElement)) return;
     refreshAll();
   };
   window.addEventListener('nesbooth-cloud-updated', () => setTimeout(refreshWhenIdle, 0));

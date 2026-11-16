@@ -492,7 +492,12 @@ async function adjustMaterialStock(payload) {
 
 async function stockHistory(url) {
   const limit = Math.min(300, Math.max(1, Number(url.searchParams.get('limit')) || 100));
-  return db('rpc/get_stock_history', {method: 'POST', body: JSON.stringify({p_limit: limit})});
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  if (from) reportDate(from, 'Tanggal awal');
+  if (to) reportDate(to, 'Tanggal akhir');
+  if (from && to && from > to) throw new Error('Rentang tanggal tidak valid');
+  return db('rpc/get_stock_history', {method: 'POST', body: JSON.stringify({p_limit: limit, p_from: from || null, p_to: to || null})});
 }
 
 async function shiftStatus() {
