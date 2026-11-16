@@ -46,19 +46,6 @@
     todaySales.forEach(sale => (sale.items || []).forEach(item => { const name = String(item.name || '').split(' — ')[0]; count.set(name, (count.get(name) || 0) + Number(item.qty || 0)); }));
     const top = [...count.entries()].sort((a, b) => b[1] - a[1])[0];
     setCard(cards[3], top?.[0] || '—', top ? `${top[1]} terjual hari ini` : 'Belum ada penjualan hari ini');
-    const reportCards = [...document.querySelectorAll('#laporan .dash-grid .stat')];
-    if (reportCards.length >= 4) {
-      const itemTotal = todaySales.reduce((sum, sale) => sum + (sale.items || []).reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0), 0);
-      const productTotal = count.size;
-      reportCards[0].querySelector('.label').textContent = 'Penjualan Hari Ini';
-      reportCards[0].querySelector('.value').textContent = money(todayTotal);
-      reportCards[1].querySelector('.label').textContent = 'Total Transaksi Hari Ini';
-      reportCards[1].querySelector('.value').textContent = todaySales.length;
-      reportCards[2].querySelector('.label').textContent = 'Jumlah Item Terjual Hari Ini';
-      reportCards[2].querySelector('.value').textContent = itemTotal.toLocaleString('id-ID');
-      reportCards[3].querySelector('.label').textContent = 'Jenis Produk Terjual Hari Ini';
-      reportCards[3].querySelector('.value').textContent = productTotal.toLocaleString('id-ID');
-    }
     const bars = document.querySelector('#dashboard .bars'); if (!bars) return;
     const first = monday(now);
     const totals = labels.map((_, index) => { const date = new Date(first); date.setDate(first.getDate() + index); const key = dayKey(date); return sales.filter(sale => dayKey(new Date(sale.created_at)) === key).reduce((sum, sale) => sum + Number(sale.total || 0), 0); });
