@@ -20,10 +20,11 @@
       if (staff_name.trim().length < 2) { show('Nama petugas wajib diisi.'); return; }
     }
     if (action === 'payment_method') {
-      const answer = prompt('Metode pembayaran baru: ketik Tunai atau QRIS', 'Tunai');
+      const answer = prompt('Metode pembayaran baru: ketik Tunai, QRIS, atau Transfer', 'Tunai');
       if (answer === null) return;
-      payment_method = answer.trim().toLowerCase() === 'qris' ? 'QRIS' : answer.trim().toLowerCase() === 'tunai' ? 'Tunai' : '';
-      if (!payment_method) { show('Metode pembayaran harus Tunai atau QRIS.'); return; }
+      const normalized = answer.trim().toLowerCase();
+      payment_method = normalized === 'qris' ? 'QRIS' : normalized === 'tunai' ? 'Tunai' : normalized === 'transfer' ? 'Transfer' : '';
+      if (!payment_method) { show('Metode pembayaran harus Tunai, QRIS, atau Transfer.'); return; }
     }
     const original = button.textContent; button.disabled = true; button.textContent = 'Memproses...';
     try {
