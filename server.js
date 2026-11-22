@@ -276,7 +276,9 @@ async function createMidtransPayment(payload) {
     const result = await midtransRequest('/snap/v1/transactions', {
       transaction_details: {order_id: orderId, gross_amount: quote.total},
       item_details: quote.items.map((item, index) => ({id: `item-${index + 1}`, name: item.name.slice(0, 50), price: item.price, quantity: item.qty})),
-      enabled_payments: ['gopay', 'shopeepay']
+      // GoPay pada Snap sudah mencakup QRIS dinamis. Jangan minta kanal
+      // ShopeePay bila belum diaktifkan pada akun Production merchant.
+      enabled_payments: ['gopay']
     });
     return {orderId, token: result.token, redirectUrl: result.redirect_url, receiptNumber: quote.receiptNumber, subtotal: quote.subtotal, total: quote.total};
   } catch (error) {
