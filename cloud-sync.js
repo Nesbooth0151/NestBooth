@@ -86,6 +86,33 @@
   };
   let lastCatalogSignature = '';
   let lastQueueSignature = '';
+  let queueLoading = false;
+
+  async function loadQueueData() {
+    if (queueLoading) return;
+    try {
+      const session = JSON.parse(localStorage.getItem('nesbooth-pos-session') || 'null');
+      if (session?.role === 'bar') return;
+    } catch { return; }
+    queueLoading = true;
+    try {
+      const data = await api('/api/queue');
+      const nextQueue = (data.queue || []).map(item => ({id: item.id, n: item.n, name: '', items: item.items, status: item.status}));
+      const nextCurrent = Number.isInteger(data.current) ? data.current : Math.max(0, nextQueue.findIndex(item => item.status === 'Diproses'));
+      const queueSignature = JSON.stringify({items: nextQueue, current: nextCurrent});
+      if (queueSignature !== lastQueueSignature) {
+        queue.splice(0, queue.length, ...nextQueue);
+        current = nextCurrent;
+        lastQueueSignature = queueSignature;
+        renderQueue();
+      }
+    } catch (error) {
+      window.nesboothCloudError = error.message || 'Antrean tidak dapat dimuat';
+    } finally {
+      queueLoading = false;
+    }
+  }
+
   async function loadCloudData() {
     // Bar hanya membutuhkan antrean. Jangan memanggil bootstrap karena endpoint
     // tersebut memuat stok dan penjualan yang memang tidak boleh dibuka untuk Bar.
@@ -147,6 +174,7 @@
   window.nesboothCloudCreateMidtransPayment = null;
   window.nesboothCloudReload = loadCloudData;
   loadCloudData();
-  // Antrean diperbarui cepat agar layar kasir/perangkat lain mengikuti status yang sama.
-  setInterval(loadCloudData, 5000);
+  // Pembaruan rutin hanya membaca antrean, bukan seluruh katalog, stok, dan laporan.
+  // Ini mengurangi request Supabase serta mencegah panel Admin sering dirender ulang.
+  setInterval(loadQueueData, 15000);
 })();
