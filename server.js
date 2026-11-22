@@ -11,6 +11,9 @@ const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const midtransServerKey = process.env.MIDTRANS_SERVER_KEY || '';
 const midtransClientKey = process.env.MIDTRANS_CLIENT_KEY || '';
+// Midtrans kini dapat memakai kunci khusus untuk memverifikasi webhook.
+// Untuk integrasi lama, fallback ke Server Key tetap kompatibel.
+const midtransSignatureKey = process.env.MIDTRANS_SIGNATURE_KEY || midtransServerKey;
 const midtransProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true';
 const midtransBase = midtransProduction ? 'https://app.midtrans.com' : 'https://app.sandbox.midtrans.com';
 const midtransApiBase = midtransProduction ? 'https://api.midtrans.com' : 'https://api.sandbox.midtrans.com';
@@ -284,7 +287,7 @@ async function createMidtransPayment(payload) {
 
 function isMidtransSignatureValid(payload) {
   const given = String(payload.signature_key || '');
-  const expected = crypto.createHash('sha512').update(`${payload.order_id || ''}${payload.status_code || ''}${payload.gross_amount || ''}${midtransServerKey}`).digest('hex');
+  const expected = crypto.createHash('sha512').update(`${payload.order_id || ''}${payload.status_code || ''}${payload.gross_amount || ''}${midtransSignatureKey}`).digest('hex');
   return given.length === expected.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
 }
 
