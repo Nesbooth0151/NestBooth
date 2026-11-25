@@ -564,7 +564,14 @@ async function stockHistory(url) {
   return db('rpc/get_stock_history', {method: 'POST', body: JSON.stringify({p_limit: limit, p_from: from || null, p_to: to || null})});
 }
 
-async function shiftStatus() {
+function nextDateKey(dateKey) {
+  const match = String(dateKey || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1));
+  return date.toISOString().slice(0, 10);
+}
+
+async function shiftStatus(historyDate = '') {
   const open = (await db('cashier_shifts?status=eq.open&select=*&limit=1'))[0] || null;
   let summary = null;
   if (open) {
@@ -580,8 +587,15 @@ async function shiftStatus() {
     const materialMap = new Map(materials.map(material => [material.id, material]));
     summary = {...open, cash_sales, qris_sales, transfer_sales, cash_expenses, expenses: expenses.map(expense => ({...expense, material: materialMap.get(expense.material_id) || null})), expected_cash: Number(open.opening_cash) + cash_sales - cash_expenses, transaction_count: sales.length};
   }
-  const recent = await db('cashier_shifts?status=eq.closed&select=*&order=closed_at.desc&limit=12');
-  return {openShift: summary, recent};
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(historyDate)) ? String(historyDate) : '';
+  const historyFilters = ['status=eq.closed', 'select=*', 'order=closed_at.desc', `limit=${date ? 100 : 12}`];
+  if (date) {
+    const nextDate = nextDateKey(date);
+    historyFilters.push(`closed_at=gte.${encodeURIComponent(`${date}T00:00:00+07:00`)}`);
+    historyFilters.push(`closed_at=lt.${encodeURIComponent(`${nextDate}T00:00:00+07:00`)}`);
+  }
+  const recent = await db(`cashier_shifts?${historyFilters.join('&')}`);
+  return {openShift: summary, recent, historyDate: date || null};
 }
 
 // Ringkasan masalah yang perlu segera ditangani di operasional toko.
@@ -700,7 +714,10 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/materials/restock' && req.method === 'POST') return send(res, 200, await restockMaterial(await readBody(req)));
     if (url.pathname === '/api/materials/adjust-stock' && req.method === 'POST') return send(res, 200, await adjustMaterialStock(await readBody(req)));
     if (url.pathname === '/api/stock/history' && req.method === 'GET') return send(res, 200, {movements: await stockHistory(url)});
-    if (url.pathname === '/api/shifts' && req.method === 'GET') return send(res, 200, await shiftStatus());
+    if (url.pathname === '/api/shifts' && req.method === 'GET') {
+      if (url.searchParams.get('date') && session?.role !== 'admin') throw new HttpError(403, 'Hanya Admin yang dapat memfilter riwayat shift berdasarkan tanggal');
+      return send(res, 200, await shiftStatus(url.searchParams.get('date')));
+    }
     if (url.pathname === '/api/shifts/detail' && req.method === 'GET') return send(res, 200, await shiftDetail(url));
     if (url.pathname === '/api/shifts/open' && req.method === 'POST') return send(res, 201, await openShift(await readBody(req), session));
     if (url.pathname === '/api/shifts/close' && req.method === 'POST') return send(res, 200, await closeShift(await readBody(req), session));

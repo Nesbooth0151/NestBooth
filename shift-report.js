@@ -14,6 +14,7 @@
   const money = value => 'Rp' + Number(value || 0).toLocaleString('id-ID');
   const session = () => { try { return JSON.parse(localStorage.getItem('nesbooth-pos-session') || '{}'); } catch { return {}; } };
   const cashier = () => session().name || 'Kasir';
+  const isAdmin = () => session().role === 'admin';
   const request = async (url, options = {}) => {
     const response = await fetch(url, {headers: {'Content-Type': 'application/json'}, ...options});
     const data = await response.json().catch(() => ({}));
@@ -34,7 +35,7 @@
     if (!open) {
       root.innerHTML = `<h2>Buka Shift Kasir</h2><p class="muted">Masukkan uang tunai awal sebelum mulai menerima transaksi. Semua transaksi berikutnya akan masuk ke shift ini.</p><form id="openShiftForm" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:18px 0"><label style="display:grid;gap:6px;font-weight:650">Kasir<input id="shiftCashier" value="${cashier()}" required style="height:38px;border:1px solid #e4eaf1;border-radius:7px;padding:0 10px"></label><label style="display:grid;gap:6px;font-weight:650">Kas awal (Rp)<input id="openingCash" type="number" min="0" value="0" required style="height:38px;border:1px solid #e4eaf1;border-radius:7px;padding:0 10px"></label><button class="btn" type="submit">Buka Shift</button></form>${historyMarkup()}`;
       document.getElementById('openShiftForm').addEventListener('submit', openShift);
-      bindDetailButtons();
+      bindHistoryFilter(); bindDetailButtons();
       return;
     }
     const stockOptions = (window.nesboothCloudState?.materials || []).map(material => `<option value="${material.id}" data-unit="${safe(material.unit)}">${safe(material.name)} (${safe(material.unit)})</option>`).join('');
@@ -51,11 +52,18 @@
     addStock.addEventListener('change', toggleStock); category.addEventListener('change', toggleStock); material.addEventListener('change', () => { unit.textContent = material.selectedOptions[0]?.dataset.unit || ''; }); toggleStock();
     document.getElementById('cashExpenseForm').addEventListener('submit', addExpense);
     document.getElementById('closeShiftForm').addEventListener('submit', closeShift);
-    bindDetailButtons();
+    bindHistoryFilter(); bindDetailButtons();
   };
 
   const expensesMarkup = expenses => `<div class="shift-expense-history" style="overflow:auto"><table><tr><th>Waktu</th><th>Kategori</th><th>Keterangan</th><th>Stok Masuk</th><th>Petugas</th><th>Nominal</th></tr>${expenses.length ? expenses.map(expense => `<tr><td>${date(expense.created_at)}</td><td>${safe(expense.category)}</td><td>${safe(expense.description)}</td><td>${expense.material ? `+${Number(expense.stock_quantity).toLocaleString('id-ID')} ${safe(expense.material.unit)} ${safe(expense.material.name)}` : '—'}</td><td>${safe(expense.created_by)}</td><td style="font-weight:750;color:#b54708">−${money(expense.amount)}</td></tr>`).join('') : '<tr><td colspan="6" class="muted" style="text-align:center;padding:14px">Belum ada pengeluaran kas pada shift ini.</td></tr>'}</table></div>`;
-  const historyMarkup = () => `<section class="shift-history"><h2>Riwayat Shift</h2><div style="overflow:auto"><table style="min-width:1240px"><tr><th>Dibuka</th><th>Ditutup</th><th>Kasir</th><th>Kas Awal</th><th>Tunai</th><th>QRIS</th><th>Transfer</th><th>Keluar</th><th>Kas Fisik</th><th>Selisih</th><th></th></tr>${recentRows(data?.recent || [])}</table></div></section>`;
+  const historyMarkup = () => `<section class="shift-history"><div style="display:flex;justify-content:space-between;gap:12px;align-items:end;flex-wrap:wrap"><div><h2 style="margin:0">Riwayat Shift</h2><p class="muted" style="margin:5px 0 0">${isAdmin() ? 'Pilih tanggal untuk melihat seluruh shift yang ditutup pada hari tersebut.' : 'Menampilkan riwayat shift terbaru.'}</p></div>${isAdmin() ? `<div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><label style="display:grid;gap:5px;font-size:12px;font-weight:650">Tanggal<input id="shiftHistoryDate" type="date" value="${data?.historyDate || ''}" style="height:36px;border:1px solid #e4eaf1;border-radius:7px;padding:0 8px"></label><button id="applyShiftHistoryDate" class="btn" type="button">Tampilkan</button><button id="clearShiftHistoryDate" class="btn ghost" type="button">Terbaru</button></div>` : ''}</div><div style="overflow:auto;margin-top:14px"><table style="min-width:1240px"><tr><th>Dibuka</th><th>Ditutup</th><th>Kasir</th><th>Kas Awal</th><th>Tunai</th><th>QRIS</th><th>Transfer</th><th>Keluar</th><th>Kas Fisik</th><th>Selisih</th><th></th></tr>${recentRows(data?.recent || [])}</table></div></section>`;
+
+  function bindHistoryFilter() {
+    if (!isAdmin()) return;
+    const input = root.querySelector('#shiftHistoryDate');
+    root.querySelector('#applyShiftHistoryDate')?.addEventListener('click', () => load(input?.value || ''));
+    root.querySelector('#clearShiftHistoryDate')?.addEventListener('click', () => load());
+  }
 
   function bindDetailButtons() {
     root.querySelectorAll('.shift-detail').forEach(button => button.addEventListener('click', () => showDetail(button.dataset.id)));
@@ -77,8 +85,9 @@
     } catch (error) { modal.firstElementChild.innerHTML = `<h2>Detail Shift</h2><p class="muted">${safe(error.message || 'Detail shift tidak dapat dimuat.')}</p><button id="closeShiftDetail" class="btn ghost" type="button">Tutup</button>`; modal.querySelector('#closeShiftDetail').onclick = close; }
   }
 
-  async function load() {
-    try { data = await request('/api/shifts'); render(); }
+  async function load(historyDate = '') {
+    const query = /^\d{4}-\d{2}-\d{2}$/.test(historyDate) ? `?date=${encodeURIComponent(historyDate)}` : '';
+    try { data = await request(`/api/shifts${query}`); render(); }
     catch (error) { root.innerHTML = `<h2>Rekap Shift</h2><p class="muted">${error.message || 'Data shift tidak dapat dimuat.'}</p>`; }
   }
   async function openShift(event) {
