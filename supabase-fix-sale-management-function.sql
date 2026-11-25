@@ -12,6 +12,9 @@ alter table public.sales add column if not exists cancelled_at timestamptz;
 alter table public.sales add column if not exists refunded_by text;
 alter table public.sales add column if not exists refund_reason text;
 alter table public.sales add column if not exists refunded_at timestamptz;
+alter table public.sales add column if not exists payment_method_changed_from text;
+alter table public.sales add column if not exists payment_method_changed_by text;
+alter table public.sales add column if not exists payment_method_changed_at timestamptz;
 
 create function public.manage_pos_sale(
   p_sale_id uuid,
@@ -36,8 +39,13 @@ begin
   if p_action = 'payment_method' then
     if v_sale.payment_status <> 'paid' then raise exception 'Hanya transaksi lunas yang dapat diubah'; end if;
     if p_payment_method not in ('Tunai', 'QRIS', 'Transfer') then raise exception 'Metode pembayaran tidak valid'; end if;
+    if v_staff is null or length(v_staff) < 2 then raise exception 'Nama Admin tidak valid'; end if;
+    if v_sale.payment_method = p_payment_method then return to_jsonb(v_sale); end if;
     update public.sales
-    set payment_method = p_payment_method
+    set payment_method = p_payment_method,
+      payment_method_changed_from = v_sale.payment_method,
+      payment_method_changed_by = left(v_staff, 120),
+      payment_method_changed_at = now()
     where id = p_sale_id
     returning * into v_sale;
 

@@ -67,19 +67,20 @@
         return `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed #dce6ef"><span><b>${Number(item.qty || 0)}× ${safe(name)}</b>${parts.length ? `<small class="muted" style="display:block">${safe(parts.join(' — '))}</small>` : ''}</span><b>${money(Number(item.qty || 0) * Number(item.price || 0))}</b></div>`;
       }).join('') || '<span class="muted">Rincian item tidak tersedia.</span>';
       const itemCount = items.reduce((sum, item) => sum + Number(item.qty || 0), 0);
-      return `<tr><td>${safe(sale.receipt_number)}</td><td>${new Date(sale.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td><td><details><summary style="cursor:pointer;color:#1677ff;font-weight:700">${itemCount} item · Lihat rincian</summary><div style="margin-top:8px;min-width:210px">${itemRows}</div></details></td><td>${safe(sale.payment_method)}</td><td>${money(sale.total)}</td><td><span class="badge ${statusClass(sale.payment_status)}">${statusText(sale.payment_status)}</span>${audit}</td><td style="white-space:nowrap">${actions}</td></tr>`;
+      const paymentAudit = sale.payment_method_changed_at ? `<small class="muted" style="display:block;margin-top:3px">Diubah dari ${safe(sale.payment_method_changed_from || '—')} oleh ${safe(sale.payment_method_changed_by || 'Admin')} · ${new Date(sale.payment_method_changed_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</small>` : '';
+      return `<tr><td>${safe(sale.receipt_number)}</td><td>${new Date(sale.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute:'2-digit'})}</td><td><details><summary style="cursor:pointer;color:#1677ff;font-weight:700">${itemCount} item · Lihat rincian</summary><div style="margin-top:8px;min-width:210px">${itemRows}</div></details></td><td><b>${safe(sale.payment_method)}</b>${paymentAudit}</td><td>${money(sale.total)}</td><td><span class="badge ${statusClass(sale.payment_status)}">${statusText(sale.payment_status)}</span>${audit}</td><td style="white-space:nowrap">${actions}</td></tr>`;
     }).join('') : '<tr><td colspan="7" style="text-align:center;color:#718096;padding:30px">Belum ada transaksi pada periode ini.</td></tr>';
   }
 
   function exportCsv() {
     if (!lastSales.length) { show('Tidak ada transaksi untuk diekspor.'); return; }
     const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const rows = [['No. Struk', 'Tanggal', 'Item', 'Pembayaran', 'Subtotal', 'Total', 'Status']];
+    const rows = [['No. Struk', 'Tanggal', 'Item', 'Pembayaran', 'Metode Sebelum Diubah', 'Diubah Oleh', 'Waktu Diubah', 'Subtotal', 'Total', 'Status']];
     lastSales.forEach(sale => rows.push([
       sale.receipt_number,
       new Date(sale.created_at).toLocaleString('id-ID', {timeZone: 'Asia/Jakarta'}),
       (sale.items || []).map(item => `${item.qty}x ${item.name}`).join('; '),
-      sale.payment_method, sale.subtotal, sale.total, sale.payment_status
+      sale.payment_method, sale.payment_method_changed_from || '', sale.payment_method_changed_by || '', sale.payment_method_changed_at || '', sale.subtotal, sale.total, sale.payment_status
     ]));
     const blob = new Blob(['\uFEFF' + rows.map(row => row.map(quote).join(',')).join('\n')], {type: 'text/csv;charset=utf-8'});
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob);

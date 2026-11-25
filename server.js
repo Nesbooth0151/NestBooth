@@ -389,19 +389,18 @@ async function manageSale(payload, session) {
   const action = String(payload.action || '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Transaksi tidak valid');
   if (!['cancel', 'refund', 'payment_method'].includes(action)) throw new Error('Aksi transaksi tidak valid');
-  const staff = action === 'payment_method' ? null : session.name;
+  const staff = session.name;
   const reason = action === 'payment_method' ? null : String(payload.reason || '').trim();
   if (reason !== null && (reason.length < 3 || reason.length > 300)) throw new Error('Alasan pembatalan/refund harus 3–300 karakter');
-  // Fungsi database perubahan metode bayar hanya menerima tiga parameter.
-  // Jangan sertakan data audit pembatalan/refund pada aksi ini, karena
-  // PostgREST akan menolaknya sebagai parameter fungsi yang tidak dikenal.
   const rpcPayload = {
     p_sale_id: id,
     p_action: action,
     p_payment_method: payload.payment_method || null
   };
+  // Catat Admin yang mengganti metode pembayaran. Pembatalan dan refund
+  // juga tetap membawa nama petugas serta alasannya.
+  rpcPayload.p_staff_name = staff;
   if (action !== 'payment_method') {
-    rpcPayload.p_staff_name = staff;
     rpcPayload.p_reason = reason;
   }
   const result = await db('rpc/manage_pos_sale', {method: 'POST', body: JSON.stringify(rpcPayload)});
