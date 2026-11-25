@@ -143,6 +143,11 @@ if(!/\.onrender\.com$/i.test(location.hostname)||sharedQueueSession?.role==='bar
   setInterval(loadSharedQueue,5000);
 }
 </script>
+<script>
+// Pesanan tidak lagi dapat ditahan dari layar kasir.
+// Tombol dihapus setelah skrip POS lama selesai menginisialisasi keranjang.
+document.getElementById('hold')?.remove();
+</script>
 <script src="login-page.js"></script>
 <script src="tv-access.js"></script>
 <script src="receipt-enhancer.js"></script>
